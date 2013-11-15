@@ -1,0 +1,11 @@
+{
+  "amazon-ecs": {
+    "associate_tag": "andlrobwebdev-20",
+    "access_key_id": "192PR4TKZ4DXGBZZ6GG2",
+    "secret_key": "DkmyItYmIMd7VUXcQTGpvEyCM0UyI6NjbTR44nsn"
+  },
+  "parse": {
+    "application_id": "urCidOZA5vUUQ57OUnK7fBjHet3Pj34fjhHKY4Vh",
+    "api_key": "GsUQth3wtNhKEbdYGr0fzVdVpPPDAPYjmv0bFxj7"
+  }
+}
