@@ -1,0 +1,13 @@
+#Ignore everything in the root
+/*
+#Except:
+!.gitignore
+!book_analysis/
+!ruby_modules/
+!tools/
+
+#ignoring logging files for amazon
+book_analysis/amazon/cron_log/*
+book_analysis/amazon/missing_log/*
+
+.DS_Store
