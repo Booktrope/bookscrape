@@ -4,21 +4,13 @@ require "parse-ruby-client"
 require "nokogiri"
 require "trollop"
 require 'json'
-
-$basePath = File.absolute_path(File.dirname(__FILE__))
-
+require 'logging'
+basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
-require File.join($basePath, "..", "..","ruby_modules", "download_simple")
-require File.join($basePath, "..", "..","ruby_modules", "constants")
+require File.join(basePath, "..", "..","ruby_modules", "download_simple")
+require File.join(basePath, "..", "..","ruby_modules", "constants")
 
-$log_dir    = File.join($basePath, "missing_log")
-$config_dir = File.join($basePath, "config")
-$cron_dir   = File.join($basePath, "cron_log")
-
-
-# TODO: jrj - look into using a ruby logging gem.
-Dir.mkdir($log_dir) unless File.exists?($log_dir)
-Dir.mkdir($cron_dir) unless File.exists?($cron_dir)
+#TODO: jrj - refactor the script to get the list of ASINS to scan from parse instead of the ASIN file. Doing so will cut down on requests made to parse.
 
 opts = Trollop::options do
 
@@ -31,26 +23,44 @@ Pulls data from Amazon
 
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
    opt :asinList, "List of asin's", :type => :string, :short => 'a'
-   version "0.1.2 2013 Justin Jeffress"
+   opt :pathToHtmlFiles, "The path to save the html files that are captured if an extracted value is not found.", :type => :string, :short => 'p'
+   version "0.1.3 2013 Justin Jeffress"
 
 end
 
-#TODO: jrj - refactor the script to get the list of ASINS to scan from parse instead of the ASIN file.
-#TODO: jrj - improve logging - add a date and time stamp of when the error occurred.
-#TODO: jrj - improve logging - in the html files saved upon not finding data in the page, add a comment to the html with what is missing.
-#TODO: jrj - upon 503 add a wait and try again.
+Logging.color_scheme( 'bright',
+:levels => {
+	:info  => :green,
+	:warn  => :yellow,
+	:error => :red,
+	:fatal => [:white, :on_red]
+   },
+	:date => :blue,
+	:logger => :cyan,
+	:message => :magenta
+)
 
-shouldSaveToParse = opts.dontSaveToParse ? false : true;
+Logging.appenders.stdout(
+	'stdout',
+	:layout => Logging.layouts.pattern(
+	:pattern => '[%d] %-5l %c: %m\n',
+	:color_scheme => 'bright'
+   )
+)
+
+$log = Logging.logger['Book_analysis::Amazon']
+$log.add_appenders 'stderr'
+$log.level = :debug
 
 def harvestAmazonData(asinList, shouldSaveToParse)
 	res = Amazon::Ecs.item_lookup(asinList,:response_group => 'ItemAttributes,SalesRank,Images')
 	if !res.is_valid_request? or res.has_error?
-	   $stderr.puts "there was an requesting the following asins: " + asinList
-		$stderr.puts res.error
+	   $log.error "There was an requesting the following asins: " + asinList
+		$log.error res.error
 	end
 	
 	if !res.items.nil? && res.items.count <= 0
-	   puts "error fetching asins: "+asinList
+	   $log.error "error fetching asins: " + asinList
 	end
 	
 	res.items.each do |item|
@@ -65,8 +75,15 @@ def harvestAmazonData(asinList, shouldSaveToParse)
 		kindle_price = "0"
 		stars = "0"
 		customer_reviews = "0"
-				
-		response = Download_simple.downloadData(detailPageUrl)
+		
+		done = false
+		count = 0
+		while(!done)
+			sleep(1.0)
+			response = Download_simple.downloadData(detailPageUrl)
+			done = true if response.code == "200"
+			if ++count > 4 then done = true end
+		end
 		
 		if response.code == "200"
 		   hasNoAvgReviews = false
@@ -83,7 +100,7 @@ def harvestAmazonData(asinList, shouldSaveToParse)
 						end
 					end
 				end
-				$stderr.puts "kindle_meta_binding_winner not found data extracted from productBlockLabel #{kindle_price}"
+				$log.warn "#{asin} kindle_meta_binding_winner not found data extracted from productBlockLabel #{kindle_price}"
 			end
 			
 			if data.at_css("span.crAvgStars span span")
@@ -109,13 +126,13 @@ def harvestAmazonData(asinList, shouldSaveToParse)
 			end
 			
 			if hasNoAvgReviews
-			   $stderr.puts "crAvgStars not found! no reviews #{asin}"
+			   $log.warn "#{asin} crAvgStars not found! no reviews"
 			end
 			if hasNoReviews
-			   $stderr.puts "no reviews found! no reviews #{asin}"
+			   $log.warn "#{asin} No reviews found!"
 			end
 		else
-			$stderr.puts "Error fetching detailUrlPage = #{response.code}"
+			$log.error "#{asin} Failed to fetch detailUrlPage error code: = #{response.code} url: #{detailPageUrl}"
 		end
 		
 		time = Time.new
@@ -151,10 +168,26 @@ def harvestAmazonData(asinList, shouldSaveToParse)
 		
 		if salesRank == "0" || kindle_price == "0" || customer_reviews == "0" || stars == "0"
 		   log_file = File.join($log_dir, "#{asin}-#{time.strftime('%Y-%m-%d')}T#{time.strftime('%H%M%S')}Z-#{ crawl_object ? crawl_object.id : "NOT-LOADED"}.html")
-		   File.open( log_file, 'w') { |file| file.write(response.body) }
+		   textHtml = "<!-- salesRank: #{salesRank} kindle_price: #{kindle_price} customer_reviews: #{customer_reviews} stars: #{stars} -->\n" + response.body
+		   File.open( log_file, 'w') { |file| file.write(textHtml) }
 		end
 	end
+	sleep(1.0)
 end
+
+
+$config_dir = File.join(basePath, "config")
+workingPath = !opts.pathToHtmlFiles.nil? && opts.pathToHtmlFiles.strip != "" ? opts.pathToHtmlFiles : basePath 
+
+$log_dir    = File.join(workingPath, "missing_log")
+$cron_dir   = File.join(workingPath, "cron_log")
+
+
+Dir.mkdir($log_dir) unless File.exists?($log_dir)
+Dir.mkdir($cron_dir) unless File.exists?($cron_dir)
+
+shouldSaveToParse = opts.dontSaveToParse ? false : true;
+
 
 #loading the ./config/config.json file and parsing into a json object.
 config_json = JSON.parse(File.read(File.join($config_dir, "config.json")))
@@ -167,7 +200,6 @@ Amazon::Ecs.options = {
 
 Parse.init :application_id => config_json[CONST_PARSE::LABEL][CONST_PARSE::APPLICATION_ID],
 	        :api_key        => config_json[CONST_PARSE::LABEL][CONST_PARSE::API_KEY]
-
 
 count = 1
 max = 10
