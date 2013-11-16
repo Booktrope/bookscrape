@@ -3,9 +3,35 @@ require "net/http"
 
 # A simple module for downloading a file at a given URL.
 # Written By: Justin Jeffress
-# Version 1.0
+# Version 1.1
 
 module Download_simple
+
+
+Logging.color_scheme( 'bright',
+:levels => {
+	:info  => :green,
+	:warn  => :yellow,
+	:error => :red,
+	:fatal => [:white, :on_red]
+   },
+	:date => :blue,
+	:logger => :cyan,
+	:message => :magenta
+)
+
+Logging.appenders.stdout(
+	'stdout',
+	:layout => Logging.layouts.pattern(
+	:pattern => '[%d] %-5l %c: %m\n',
+	:color_scheme => 'bright'
+   )
+)
+
+@log = Logging.logger['Book_analysis::Apple']
+@log.add_appenders 'stdout'
+@log.level = :debug
+
 
    def self.downloadData(url, openTimeOut = 30, readTimeOut = 30)
       uri = URI.parse(url)
@@ -17,12 +43,12 @@ module Download_simple
       request = Net::HTTP::Get.new(uri.request_uri)
       request.initialize_http_header({'User-Agent' => useragent})
 
-      $stderr.puts "connecting to: " + url
+      @log.info "connecting to: " + url
       
       begin
          response = http.request(request)
       rescue
-         $stderr.puts "operation timed out when attempting to access " + url
+         @log.error "operation timed out when attempting to access " + url
          return nil
       end
 
@@ -33,7 +59,7 @@ module Download_simple
             if !redirectLink.start_with?("http://") 
                redirectLink = "http://" + uri.host + redirectLink
             end
-            $stderr.puts "redirecting to: " + redirectLink + "\n"
+            @log.info "redirecting to: " + redirectLink + "\n"
             response = Net::HTTP.get_response(URI.parse(redirectLink))
          end
       end
