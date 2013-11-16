@@ -28,8 +28,8 @@ Logging.appenders.stdout(
    )
 )
 
-@log = Logging.logger['Book_analysis::Apple']
-@log.add_appenders 'stdout'
+@log = Logging.logger['Ruby_module::Download_simple']
+@log.add_appenders 'stderr'
 @log.level = :debug
 
 
