@@ -81,11 +81,11 @@ def harvestAmazonData(asinList, shouldSaveToParse)
 		while(!done)
 			sleep(1.0)
 			response = Download_simple.downloadData(detailPageUrl)
-			done = true if response.code == "200"
+			done = true if !response.nil? && response.code == "200"
 			if ++count > 4 then done = true end
 		end
 		
-		if response.code == "200"
+		if !response.nil? && response.code == "200"
 		   hasNoAvgReviews = false
 		   hasNoReviews = false
 			data = Nokogiri.parse(response.body)			
