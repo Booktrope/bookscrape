@@ -5,6 +5,8 @@ require "nokogiri"
 require "trollop"
 require 'json'
 require 'logging'
+require 'time'
+
 basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
 require File.join(basePath, "..", "..","ruby_modules", "download_simple")
@@ -49,7 +51,7 @@ Logging.appenders.stdout(
 )
 
 $log = Logging.logger['Book_analysis::Amazon']
-$log.add_appenders 'stderr'
+$log.add_appenders Logging.appenders.stderr
 $log.level = :debug
 
 def harvestAmazonData(asinList, shouldSaveToParse)
@@ -136,8 +138,7 @@ def harvestAmazonData(asinList, shouldSaveToParse)
 		end
 		
 		time = Time.new
-		crawl_date = time.strftime("%Y/%m/%d")
-		crawl_time = time.strftime("%H:%M:%S")
+		crawl_date = Parse::Date.new(time.strftime("%Y/%m/%d %H:%M:%S"))
 		
 		if shouldSaveToParse
 		   book_object = Parse::Query.new("Book").eq("asin", asin).get.first
@@ -159,11 +160,11 @@ def harvestAmazonData(asinList, shouldSaveToParse)
 			crawl_object['num_of_reviews'] = customer_reviews.to_f
 			crawl_object['average_stars'] = stars.to_f
 			crawl_object['crawl_date'] = crawl_date
-			crawl_object['crawl_time'] = crawl_time
+
 			crawl_object['book'] = book_object
 			crawl_object.save
 		else
-		   puts "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % [asin, kindle_price, title, author, manufacturer, salesRank, customer_reviews, stars, crawl_date, crawl_time, detailPageUrl, largeImageUrl]
+		   puts "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % [asin, kindle_price, title, author, manufacturer, salesRank, customer_reviews, stars, crawl_date.to_h()["iso"], detailPageUrl, largeImageUrl]
 		end
 		
 		if salesRank == "0" || kindle_price == "0" || customer_reviews == "0" || stars == "0"
