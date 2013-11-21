@@ -29,7 +29,7 @@ Logging.appenders.stdout(
 )
 
 @log = Logging.logger['Ruby_module::Download_simple']
-@log.add_appenders 'stderr'
+@log.add_appenders Logging.appenders.stderr
 @log.level = :debug
 
 
