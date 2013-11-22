@@ -7,6 +7,7 @@ require 'json'
 require 'logging'
 require 'time'
 
+
 basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
 require File.join(basePath, "..", "..","ruby_modules", "download_simple")
@@ -20,11 +21,10 @@ opts = Trollop::options do
 Pulls data from Amazon
 
    Usage:
-            ruby bookDropAmazonPickUp.rb [--dontSaveToParse] --asinList
+            ruby bookDropAmazonPickUp.rb [--dontSaveToParse]
    EOS
 
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
-   opt :asinList, "List of asin's", :type => :string, :short => 'a'
    opt :pathToHtmlFiles, "The path to save the html files that are captured if an extracted value is not found.", :type => :string, :short => 'p'
    version "0.1.3 2013 Justin Jeffress"
 
@@ -54,10 +54,10 @@ $log = Logging.logger['Book_analysis::Amazon']
 $log.add_appenders Logging.appenders.stderr
 $log.level = :debug
 
-def harvestAmazonData(asinList, shouldSaveToParse)
+def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 	res = Amazon::Ecs.item_lookup(asinList,:response_group => 'ItemAttributes,SalesRank,Images')
 	if !res.is_valid_request? or res.has_error?
-	   $log.error "There was an requesting the following asins: " + asinList
+	   $log.error "There was an error requesting the following asins: " + asinList
 		$log.error res.error
 	end
 	
@@ -140,18 +140,17 @@ def harvestAmazonData(asinList, shouldSaveToParse)
 		time = Time.new
 		crawl_date = Parse::Date.new(time.strftime("%Y/%m/%d %H:%M:%S"))
 		
-		if shouldSaveToParse
-		   book_object = Parse::Query.new("Book").eq("asin", asin).get.first
-			if book_object.nil?
-			   book_object = Parse::Object.new("Book")
-			   book_object['asin'] = asin
-			   book_object['title'] = title
-			   book_object['detail_url'] = detailPageUrl
-			   book_object['large_image'] = largeImageUrl
-			   book_object['author'] = author
-			   book_object['publisher'] = manufacturer
-			   book_object.save
-			end
+		if shouldSaveToParse		   
+		   #we only update if a field that we pull form amazon is different than what is already stored in parse. (except the asin that just wouldn't make sense)
+		   flag = 0
+		   book_object = bookHash[asin]
+			if book_object['title'] != title then book_object['title'] = title; flag |= 1 end
+			if book_object['detail_url'] != detailPageUrl then book_object['detail_url'] = detailPageUrl; flag |= 2 end
+			if book_object['large_image'] != largeImageUrl then book_object['large_image'] = largeImageUrl; flag |= 4 end
+			if book_object['author'] != author then book_object['author'] = author; flag |= 8 end
+			if book_object['publisher'] = manufacturer then book_object['publisher'] = manufacturer; flag |= 16 end
+			book_object.save if flag & 31 # anding our max value (of 5 bits) if greater than 0 we know we had a change 
+			#TODO: add a log of what we changed by anding by, 1,2,4,8,16 to see if we get a value > 0, if so then the corresponding field changed. 
 			
 			crawl_object = Parse::Object.new("AmazonStats")
 			crawl_object['asin'] = asin
@@ -201,25 +200,40 @@ Amazon::Ecs.options = {
 
 Parse.init :application_id => config_json[CONST_PARSE::LABEL][CONST_PARSE::APPLICATION_ID],
 	        :api_key        => config_json[CONST_PARSE::LABEL][CONST_PARSE::API_KEY]
+	        
+	        
+book_count = Parse::Query.new("Book").tap do |q|
+   q.limit = 0
+   q.count = 1
+end.get	  
 
-count = 1
-max = 10
-isStart = true
-asin_args = ""
-File.open(opts.asinList) do |file|
-	file.each_line do |line|
-		if !isStart
-			asin_args << ","
+if book_count["count"] > 0
+	GROUPING = 10
+	skip = 0
+	done = false
+	while !done
+		
+		book_list = Parse::Query.new("Book").tap do |q|
+			q.skip = skip 
+			q.limit = 10
+		end.get
+		skip = skip + GROUPING
+		
+		bookHash = Hash.new
+		isStart = true
+		asin_args = ""
+		count = 1
+		book_list.each do |book|
+			bookHash[book["asin"]] = book
+		
+			if !isStart
+				asin_args << ","
+			end
+			isStart = false
+			asin_args << book["asin"]
 		end
-		isStart = false
-		asin_args << line.strip
-		if count % max == 0
-			harvestAmazonData(asin_args, shouldSaveToParse)
-			asin_args = ""
-			isStart = true
-		end
-		count = count + 1
+		puts asin_args
+		harvestAmazonData(asin_args, bookHash, shouldSaveToParse) if asin_args.length > 0
+		done = true if skip >= book_count["count"]
 	end
 end
-
-harvestAmazonData(asin_args, shouldSaveToParse) if asin_args.length > 0
