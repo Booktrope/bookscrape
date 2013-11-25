@@ -42,8 +42,8 @@ Logging.color_scheme( 'bright',
 	:message => :magenta
 )
 
-Logging.appenders.stdout(
-	'stdout',
+Logging.appenders.stderr(
+	'stderr',
 	:layout => Logging.layouts.pattern(
 	:pattern => '[%d] %-5l %c: %m\n',
 	:color_scheme => 'bright'
@@ -73,6 +73,10 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 		author = item.get('ItemAttributes/Author')
 		manufacturer = item.get('ItemAttributes/Manufacturer')
 		title = item.get('ItemAttributes/Title')
+		
+		book_object = bookHash[asin]
+		
+		bookHash.delete(asin)
 			
 		kindle_price = "0"
 		stars = "0"
@@ -143,7 +147,7 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 		if shouldSaveToParse		   
 		   #we only update if a field that we pull form amazon is different than what is already stored in parse. (except the asin that just wouldn't make sense)
 		   flag = 0
-		   book_object = bookHash[asin]
+		   
 			if book_object['title'] != title then book_object['title'] = title; flag |= 1 end
 			if book_object['detail_url'] != detailPageUrl then book_object['detail_url'] = detailPageUrl; flag |= 2 end
 			if book_object['large_image'] != largeImageUrl then book_object['large_image'] = largeImageUrl; flag |= 4 end
@@ -171,6 +175,17 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 		   textHtml = "<!-- salesRank: #{salesRank} kindle_price: #{kindle_price} customer_reviews: #{customer_reviews} stars: #{stars} -->\n" + response.body
 		   File.open( log_file, 'w') { |file| file.write(textHtml) }
 		end
+	end
+	if bookHash.length > 0
+	
+		is_first = true
+		asin_list = ""
+		bookHash.each do | key, value |
+			asin_list << "," if !is_first
+			asin_list << key
+			is_first = false
+		end
+		$log.warn "not all books were returned from amazon: #{asin_list}"
 	end
 	sleep(1.0)
 end
@@ -232,7 +247,6 @@ if book_count["count"] > 0
 			isStart = false
 			asin_args << book["asin"]
 		end
-		puts asin_args
 		harvestAmazonData(asin_args, bookHash, shouldSaveToParse) if asin_args.length > 0
 		done = true if skip >= book_count["count"]
 	end
