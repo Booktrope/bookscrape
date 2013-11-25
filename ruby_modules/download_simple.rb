@@ -20,8 +20,8 @@ Logging.color_scheme( 'bright',
 	:message => :magenta
 )
 
-Logging.appenders.stdout(
-	'stdout',
+Logging.appenders.stderr(
+	'stderr',
 	:layout => Logging.layouts.pattern(
 	:pattern => '[%d] %-5l %c: %m\n',
 	:color_scheme => 'bright'
