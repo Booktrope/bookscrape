@@ -88,7 +88,8 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 			sleep(1.0)
 			response = Download_simple.downloadData(detailPageUrl)
 			done = true if !response.nil? && response.code == "200"
-			if ++count > 4 then done = true end
+			if count > 4 then done = true end
+			count = count + 1
 		end
 		
 		if !response.nil? && response.code == "200"
@@ -185,7 +186,7 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 			asin_list << key
 			is_first = false
 		end
-		$log.warn "not all books were returned from amazon: #{asin_list}"
+		$log.error "not all books were returned from amazon: #{asin_list}"
 	end
 	sleep(1.0)
 end
