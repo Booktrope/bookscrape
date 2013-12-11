@@ -97,7 +97,9 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 		   hasNoReviews = false
 			data = Nokogiri.parse(response.body)			
 			if data.at_css("tbody#kindle_meta_binding_winner")
-				kindle_price = data.at_css("tbody#kindle_meta_binding_winner tr#tmm_"<< asin <<" td.price").text.strip.gsub(/\n.*/, "").tr('$','')
+				if !data.at_css("tbody#kindle_meta_binding_winner tr#tmm_"<< asin <<" td.price").nil?
+					kindle_price = data.at_css("tbody#kindle_meta_binding_winner tr#tmm_"<< asin <<" td.price").text.strip.gsub(/\n.*/, "").tr('$','')
+				end
 			else
 				kindle_prices = data.xpath("//td[@class='productBlockLabel']")
 				kindle_prices.each do |item|
@@ -120,8 +122,8 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 			
 			if salesRank == nil
 				salesRankTag = data.at_css("li#SalesRank")
-				match = /#([0-9,]*)/.match(salesRankTag.text)
-				salesRank = match[1].gsub(/,/,"")
+				match = /#([0-9,]*)/.match(salesRankTag.text) if !salesRankTag.nil?
+				salesRank = match[1].gsub(/,/,"") if !salesRankTag.nil?
 			end
 			
 			if data.at("//span[@class='crAvgStars']/a[last()]")
@@ -149,13 +151,20 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 		   #we only update if a field that we pull form amazon is different than what is already stored in parse. (except the asin that just wouldn't make sense)
 		   flag = 0
 		   
-			if book_object['title'] != title then book_object['title'] = title; flag |= 1 end
-			if book_object['detail_url'] != detailPageUrl then book_object['detail_url'] = detailPageUrl; flag |= 2 end
-			if book_object['large_image'] != largeImageUrl then book_object['large_image'] = largeImageUrl; flag |= 4 end
-			if book_object['author'] != author then book_object['author'] = author; flag |= 8 end
-			if book_object['publisher'] = manufacturer then book_object['publisher'] = manufacturer; flag |= 16 end
-			book_object.save if flag & 31 # anding our max value (of 5 bits) if greater than 0 we know we had a change 
+			if !title.nil?         && book_object['title']       != title then book_object['title'] = title; flag |= 1 end
+			if !detailPageUrl.nil? && book_object['detail_url']  != detailPageUrl then book_object['detail_url'] = detailPageUrl; flag |= 2 end
+			if !largeImageUrl.nil? && book_object['large_image'] != largeImageUrl then book_object['large_image'] = largeImageUrl; flag |= 4 end
+			if !author.nil?        && book_object['author']      != author then book_object['author'] = author; flag |= 8 end
+			if !manufacturer.nil?  && book_object['publisher']   != manufacturer then book_object['publisher'] = manufacturer; flag |= 16 end
+
+			begin
+				book_object.save if flag & 31 # anding our max value (of 5 bits) if greater than 0 we know we had a change 				
+			rescue Exception => e
+				$log.error pp book_object
+				$log.error pp e
+			end
 			#TODO: add a log of what we changed by anding by, 1,2,4,8,16 to see if we get a value > 0, if so then the corresponding field changed. 
+
 			
 			crawl_object = Parse::Object.new("AmazonStats")
 			crawl_object['asin'] = asin
@@ -166,7 +175,12 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 			crawl_object['crawl_date'] = crawl_date
 
 			crawl_object['book'] = book_object
-			crawl_object.save
+			begin
+				crawl_object.save
+			rescue Exception => e
+				$log.error pp crawl_object
+				$log.error pp e
+			end
 		else
 		   puts "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % [asin, kindle_price, title, author, manufacturer, salesRank, customer_reviews, stars, crawl_date.to_h()["iso"], detailPageUrl, largeImageUrl]
 		end
