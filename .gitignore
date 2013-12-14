@@ -3,7 +3,9 @@
 #Except:
 !.gitignore
 !book_analysis/
+!config/
 !ruby_modules/
+!salesdata_extraction/
 !tools/
 
 #ignoring logging files for amazon

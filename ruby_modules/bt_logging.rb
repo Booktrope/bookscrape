@@ -1,0 +1,29 @@
+require 'logging'
+
+module Bt_logging
+	def self.create_logging(className)	
+		Logging.color_scheme( 'bright',
+			:levels => {
+				:info  => :green,
+				:warn  => :yellow,
+				:error => :red,
+				:fatal => [:white, :on_red]
+			},
+			:date => :blue,
+			:logger => :cyan,
+			:message => :magenta
+		)
+		
+		Logging.appenders.stderr(
+		'stderr',
+		:layout => Logging.layouts.pattern(
+			:pattern => '[%d] %-5l %c: %m\n',
+			:color_scheme => 'bright'
+			)
+		)
+		log = Logging.logger[(!className.nil? && !className.empty?) ? className : "bt_logging"]
+		log.add_appenders Logging.appenders.stderr
+		log.level = :debug
+		return log
+	end
+end
