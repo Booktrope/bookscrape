@@ -1,0 +1,16 @@
+{
+  "amazon-ecs": {
+    "associate_tag": "andlrobwebdev-20",
+    "access_key_id": "192PR4TKZ4DXGBZZ6GG2",
+    "secret_key": "DkmyItYmIMd7VUXcQTGpvEyCM0UyI6NjbTR44nsn"
+  },
+  "amazon-kdp": {
+    "url": "https://kdp.amazon.com/self-publishing/signin",
+    "username": "production@booktrope.com",
+    "password": "LibertarybecameBooktropein2010"
+  },
+  "parse": {
+    "application_id": "urCidOZA5vUUQ57OUnK7fBjHet3Pj34fjhHKY4Vh",
+    "api_key": "GsUQth3wtNhKEbdYGr0fzVdVpPPDAPYjmv0bFxj7"
+  }
+}

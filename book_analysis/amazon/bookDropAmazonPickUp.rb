@@ -4,14 +4,16 @@ require "parse-ruby-client"
 require "nokogiri"
 require "trollop"
 require 'json'
-require 'logging'
 require 'time'
 
 
 basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
-require File.join(basePath, "..", "..","ruby_modules", "download_simple")
+require File.join(basePath, "..", "..","ruby_modules", "bt_logging")
 require File.join(basePath, "..", "..","ruby_modules", "constants")
+require File.join(basePath, "..", "..","ruby_modules", "download_simple")
+
+
 
 #TODO: jrj - refactor the script to get the list of ASINS to scan from parse instead of the ASIN file. Doing so will cut down on requests made to parse.
 
@@ -30,29 +32,7 @@ Pulls data from Amazon
 
 end
 
-Logging.color_scheme( 'bright',
-:levels => {
-	:info  => :green,
-	:warn  => :yellow,
-	:error => :red,
-	:fatal => [:white, :on_red]
-   },
-	:date => :blue,
-	:logger => :cyan,
-	:message => :magenta
-)
-
-Logging.appenders.stderr(
-	'stderr',
-	:layout => Logging.layouts.pattern(
-	:pattern => '[%d] %-5l %c: %m\n',
-	:color_scheme => 'bright'
-   )
-)
-
-$log = Logging.logger['Book_analysis::Amazon']
-$log.add_appenders Logging.appenders.stderr
-$log.level = :debug
+$log = Bt_logging.create_logging('Book_analysis::Amazon')
 
 def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 	res = Amazon::Ecs.item_lookup(asinList,:response_group => 'ItemAttributes,SalesRank,Images')
@@ -220,18 +200,16 @@ shouldSaveToParse = opts.dontSaveToParse ? false : true;
 
 
 #loading the ./config/config.json file and parsing into a json object.
-config_json = JSON.parse(File.read(File.join($config_dir, "config.json")))
-
+BT_CONSTANTS = BTConstants.get_constants
 Amazon::Ecs.options = {
-:associate_tag     => config_json[CONST_AWS::LABEL][CONST_AWS::ASSOCIATE_TAG],
-:AWS_access_key_id => config_json[CONST_AWS::LABEL][CONST_AWS::ACCESS_KEY_ID],
-:AWS_secret_key    => config_json[CONST_AWS::LABEL][CONST_AWS::SECRET_KEY]
+:associate_tag     => BT_CONSTANTS[:amazon_ecs_associate_tag],
+:AWS_access_key_id => BT_CONSTANTS[:amazon_ecs_access_key_id],
+:AWS_secret_key    => BT_CONSTANTS[:amazon_ecs_secret_key]
 }
 
-Parse.init :application_id => config_json[CONST_PARSE::LABEL][CONST_PARSE::APPLICATION_ID],
-	        :api_key        => config_json[CONST_PARSE::LABEL][CONST_PARSE::API_KEY]
-	        
-	        
+Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
+	        :api_key        => BT_CONSTANTS[:parse_api_key]
+
 book_count = Parse::Query.new("Book").tap do |q|
    q.limit = 0
    q.count = 1
