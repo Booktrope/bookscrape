@@ -1,6 +1,7 @@
 # Global constans for Ruby scripts, classes, modules, etc.
 # Written By: Justin Jeffress
 # Version 1.0
+require 'json'
 
 #The amazon ecs keys (used for referring to the key values in a config.json file)
 class CONST_AWS
@@ -23,7 +24,6 @@ class CONST_PARSE
 	APPLICATION_ID = "application_id"
 	API_KEY = "api_key"
 end
-
 
 module BTConstants
    @basePath = File.absolute_path(File.dirname(__FILE__))
