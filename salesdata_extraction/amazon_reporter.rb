@@ -3,8 +3,8 @@ require 'parse-ruby-client'
 
 basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
-require File.join(basePath, "..", "..", "ruby_modules", "constants")
-require File.join(basePath, "..", "..", "ruby_modules", "selenium_harness")
+require File.join(basePath, "..", "ruby_modules", "constants")
+require File.join(basePath, "..", "ruby_modules", "selenium_harness")
 
 class_name = "Salesdata_Extraction::Amazon_reporter"
 results = Selenium_harness.run(class_name, lambda { | log |
