@@ -17,5 +17,10 @@
     "url": "https://itunesconnect.apple.com",
     "username": "publisher@booktrope.com",
     "password": "L1bertar4***"
+  },
+  "nookpress": {
+    "url": "https://www.nookpress.com/",
+    "username": "production@booktrope.com",
+    "password": "L1bertar4***"
   }
 }

@@ -32,6 +32,13 @@ class CONST_ITUNES_CONNECT
 	PASSWORD = "password"
 end
 
+class CONST_NOOKPRESS
+	LABEL = "nookpress"
+	URL = "url"
+	USERNAME = "username"
+	PASSWORD = "password"
+end
+
 module BTConstants
    @basePath = File.absolute_path(File.dirname(__FILE__))
 	@constants = nil
@@ -60,6 +67,10 @@ module BTConstants
 		hash[:itunes_connect_url]      = config_json[CONST_ITUNES_CONNECT::LABEL][CONST_ITUNES_CONNECT::URL]
 		hash[:itunes_connect_username] = config_json[CONST_ITUNES_CONNECT::LABEL][CONST_ITUNES_CONNECT::USERNAME]
 		hash[:itunes_connect_password] = config_json[CONST_ITUNES_CONNECT::LABEL][CONST_ITUNES_CONNECT::PASSWORD]
+		
+		hash[:nookpress_url]      = config_json[CONST_NOOKPRESS::LABEL][CONST_NOOKPRESS::URL]
+		hash[:nookpress_username] = config_json[CONST_NOOKPRESS::LABEL][CONST_NOOKPRESS::USERNAME]
+		hash[:nookpress_password] = config_json[CONST_NOOKPRESS::LABEL][CONST_NOOKPRESS::PASSWORD]
 		
 		return hash
 	end     
