@@ -25,6 +25,13 @@ class CONST_PARSE
 	API_KEY = "api_key"
 end
 
+class CONST_ITUNES_CONNECT
+	LABEL = "itunes"
+	URL = "url"
+	USERNAME = "username"
+	PASSWORD = "password"
+end
+
 module BTConstants
    @basePath = File.absolute_path(File.dirname(__FILE__))
 	@constants = nil
@@ -49,6 +56,10 @@ module BTConstants
 		
 		hash[:parse_application_id] = config_json[CONST_PARSE::LABEL][CONST_PARSE::APPLICATION_ID]
 		hash[:parse_api_key]        = config_json[CONST_PARSE::LABEL][CONST_PARSE::API_KEY]
+		
+		hash[:itunes_connect_url]      = config_json[CONST_ITUNES_CONNECT::LABEL][CONST_ITUNES_CONNECT::URL]
+		hash[:itunes_connect_username] = config_json[CONST_ITUNES_CONNECT::LABEL][CONST_ITUNES_CONNECT::USERNAME]
+		hash[:itunes_connect_password] = config_json[CONST_ITUNES_CONNECT::LABEL][CONST_ITUNES_CONNECT::PASSWORD]
 		
 		return hash
 	end     

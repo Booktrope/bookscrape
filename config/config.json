@@ -12,5 +12,10 @@
   "parse": {
     "application_id": "urCidOZA5vUUQ57OUnK7fBjHet3Pj34fjhHKY4Vh",
     "api_key": "GsUQth3wtNhKEbdYGr0fzVdVpPPDAPYjmv0bFxj7"
+  },
+  "itunes": {
+    "url": "https://itunesconnect.apple.com",
+    "username": "publisher@booktrope.com",
+    "password": "L1bertar4***"
   }
 }
