@@ -39,6 +39,13 @@ class CONST_NOOKPRESS
 	PASSWORD = "password"
 end
 
+class CONST_CREATESPACE
+	LABEL = "createspace"
+	URL = "url"
+	USERNAME = "username"
+	PASSWORD = "password"
+end
+
 module BTConstants
    @basePath = File.absolute_path(File.dirname(__FILE__))
 	@constants = nil
@@ -71,6 +78,10 @@ module BTConstants
 		hash[:nookpress_url]      = config_json[CONST_NOOKPRESS::LABEL][CONST_NOOKPRESS::URL]
 		hash[:nookpress_username] = config_json[CONST_NOOKPRESS::LABEL][CONST_NOOKPRESS::USERNAME]
 		hash[:nookpress_password] = config_json[CONST_NOOKPRESS::LABEL][CONST_NOOKPRESS::PASSWORD]
+		
+		hash[:createspace_url]      = config_json[CONST_CREATESPACE::LABEL][CONST_CREATESPACE::URL]
+		hash[:createspace_username] = config_json[CONST_CREATESPACE::LABEL][CONST_CREATESPACE::USERNAME]
+		hash[:createspace_password] = config_json[CONST_CREATESPACE::LABEL][CONST_CREATESPACE::PASSWORD]
 		
 		return hash
 	end     
