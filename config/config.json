@@ -22,5 +22,10 @@
     "url": "https://www.nookpress.com/",
     "username": "production@booktrope.com",
     "password": "L1bertar4***"
+  },
+  "createspace": {
+    "url": "https://www.createspace.com/Login.do?redirectURL=pub/member.dashboard.do",
+    "username": "production@booktrope.com",
+    "password": "L1bertar4***"
   }
 }
