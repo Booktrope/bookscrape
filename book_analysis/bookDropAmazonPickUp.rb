@@ -9,13 +9,9 @@ require 'time'
 
 basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
-require File.join(basePath, "..", "..","ruby_modules", "bt_logging")
-require File.join(basePath, "..", "..","ruby_modules", "constants")
-require File.join(basePath, "..", "..","ruby_modules", "download_simple")
-
-
-
-#TODO: jrj - refactor the script to get the list of ASINS to scan from parse instead of the ASIN file. Doing so will cut down on requests made to parse.
+require File.join(basePath, "..","ruby_modules", "bt_logging")
+require File.join(basePath, "..","ruby_modules", "constants")
+require File.join(basePath, "..","ruby_modules", "download_simple")
 
 opts = Trollop::options do
 
