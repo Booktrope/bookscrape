@@ -1,6 +1,5 @@
 require 'nokogiri'
 require 'parse-ruby-client'
-require 'pp'
 
 basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
@@ -66,6 +65,7 @@ results = Selenium_harness.run(class_name, lambda { | log |
 	the_page_data = Nokogiri.parse(Selenium_harness.page_source)
 
 	the_sales_table = the_page_data.css("div#resultTable table tbody tr")
+	pp the_sales_table
 	the_sales_table.each do | row |
 		row_data = Hash.new
 		row_data[:title] = row.children[0].text.strip
@@ -79,6 +79,69 @@ results = Selenium_harness.run(class_name, lambda { | log |
 	return results
 	
 })
-results.each do | result |
-	puts "#{result[:title]}\t#{result[:channel]}\t#{result[:isbn]}\t#{result[:asin]}\t#{result[:units_sold]}\t"
+
+def get_book_hash()
+
+	book_hash = Hash.new
+	
+	#getting the number of books in parse
+	book_count = Parse::Query.new("Book").tap do |q|
+   	q.limit = 0
+   	q.count = 1
+	end.get	 
+
+	#requesting all books at once
+	#TODO: parse is limited to 1000 rows per query. Need to update this to loop requests 
+	#using skip to get everything.
+	book_list = Parse::Query.new("Book").tap do |q|
+		q.limit = book_count["count"]
+	end.get
+
+	#building the book_hash
+	book_list.each do | book |
+		book_hash[book["asin"]] = book
+	end
+	
+	return book_hash
+end
+
+$amazon_channels = {"Amazon" => "US", "Amazon Europe - GBP" => "GB", "Amazon Europe - EUR" => "EU" }
+
+def save_sales_data_to_parse(results)
+	book_hash = get_book_hash
+
+	results.each do | result |
+		daily_sales = result[:units_sold].to_i
+			
+		#setting the crawl date
+		crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/%d")+" "+Time.now().strftime("%H:%M:%S"))
+	
+		#getting the book object to link the amazon_sales_data to.
+		book = book_hash[result[:asin]]
+		
+		#TODO: createspace asins are for paperback boosks. looks like we need a way to link the paperback to
+		#the ebook version of the book. Add a form to WP.
+		#if we lack a book then it's not in parse so we add it. Next time the amazon book pick up tool runs
+		#the rest of the data will be filled out.
+		#if book.nil?
+		#	book = Parse::Object.new("Book")
+		#	book["asin"] = result[:asin]
+		#	book.save
+		#end
+	
+		cs_sales_data = Parse::Object.new("CreateSpaceSalesData")
+		cs_sales_data["book"] = nil
+		cs_sales_data["asin"] = result[:asin]
+		cs_sales_data["country"] = $amazon_channels[result[:channel]]
+		cs_sales_data["crawlDate"] = crawl_date
+		cs_sales_data["dailySales"] = daily_sales
+		cs_sales_data.save
+	end	
+end
+
+if !results.nil? && results.count > 0
+	#initialize parse
+	Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
+		        :api_key        => BT_CONSTANTS[:parse_api_key]
+	save_sales_data_to_parse(results)
 end
