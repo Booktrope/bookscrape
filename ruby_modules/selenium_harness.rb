@@ -1,10 +1,13 @@
+require 'headless'
 require 'selenium-webdriver'
 require File.join(File.absolute_path(File.dirname(__FILE__)), "bt_logging")
 
 module Selenium_harness
 	@driver = nil
+	@headless = nil
 	
 	def self.driver
+		
 		return @driver
 	end
 	
@@ -21,11 +24,14 @@ module Selenium_harness
 	end
 		
 	def self.setup
+		@headless = Headless.new
+		@headless.start
 		@driver = Selenium::WebDriver.for :firefox
 	end
 	
 	def self.teardown
 		@driver.quit
+		@headless.destroy
 	end
 	
 	def self.run(className,code)
