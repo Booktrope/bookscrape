@@ -1,4 +1,5 @@
 require 'nokogiri'
+require 'trollop'
 require 'parse-ruby-client'
 
 basePath = File.absolute_path(File.dirname(__FILE__))
@@ -6,9 +7,25 @@ basePath = File.absolute_path(File.dirname(__FILE__))
 require File.join(basePath, "..", "ruby_modules", "constants")
 require File.join(basePath, "..", "ruby_modules", "selenium_harness")
 
-class_name = "Salesdata_Extraction::Apple_reporter"
-results = Selenium_harness.run(class_name, lambda { | log |
+$opts = Trollop::options do
 
+   banner <<-EOS
+Extracts book sales data from iTunes Connect
+
+   Usage:
+            ruby apple_reporter.rb [--dontSaveToParse] [--headless]
+   EOS
+
+   opt :dontSaveToParse, "Turns off parse", :short => 'x'
+   opt :headless, "Runs headless", :short => 'h'
+   version "1.0.0 2014 Justin Jeffress"
+
+end
+
+should_run_headless = ($opts.headless) ?  true : false
+
+class_name = "Salesdata_Extraction::Apple_reporter"
+results = Selenium_harness.run(should_run_headless,class_name, lambda { | log |
 	BT_CONSTANTS = BTConstants.get_constants
 	url = BT_CONSTANTS[:itunes_connect_url]
 	
@@ -26,13 +43,15 @@ results = Selenium_harness.run(class_name, lambda { | log |
 	sales_and_trends_link = Selenium_harness.find_element(:link_text, "Sales and Trends")
 	sales_and_trends_link.click
 	
-	sleep(1.0)
-	#wait.until { Selenium_harness.find_element(:link_text, "Sales") }
+	
+	wait = Selenium::WebDriver::Wait.new(:timeout => 5)
+	wait.until { Selenium_harness.find_element(:link_text, "Sales") }
 	
 	sales_link = Selenium_harness.find_element(:link_text, "Sales")
 	sales_link.click
 
 	sleep(5.0)
+	#wait.until { Selenium_harness.find_element(:xpath, "//table[@id='theForm:salesTable']/tbody/tr") }
 
 	the_page_data = Nokogiri.parse(Selenium_harness.page_source)
 	
@@ -86,7 +105,8 @@ def save_sales_data_to_parse(results)
 		#TODO: get the date out of the page.
 		apple_sales_data["crawlDate"] = Parse::Date.new((Date.today).strftime("%Y/%m/%d")+" 00:00:00")
 		
-		apple_sales_data.save
+		apple_sales_data.save if !$opts.dontSaveToParse
+		
 		puts "#{result[:title]}\t#{result[:units_sold]}\t#{result[:country]}\t#{result[:apple_id]}"
 	end
 end
