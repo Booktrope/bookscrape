@@ -1,4 +1,5 @@
 require 'nokogiri'
+require 'trollop'
 require 'parse-ruby-client'
 
 basePath = File.absolute_path(File.dirname(__FILE__))
@@ -6,8 +7,25 @@ basePath = File.absolute_path(File.dirname(__FILE__))
 require File.join(basePath, "..", "ruby_modules", "constants")
 require File.join(basePath, "..", "ruby_modules", "selenium_harness")
 
+$opts = Trollop::options do
+
+   banner <<-EOS
+Extracts book sales data from Amazon KDP
+
+   Usage:
+            ruby amazon_reporter.rb [--dontSaveToParse] [--headless]
+   EOS
+
+   opt :dontSaveToParse, "Turns off parse", :short => 'x'
+   opt :headless, "Runs headless", :short => 'h'
+   version "1.0.0 2014 Justin Jeffress"
+
+end
+
+should_run_headless = ($opts.headless) ?  true : false
+
 class_name = "Salesdata_Extraction::Amazon_reporter"
-results = Selenium_harness.run(class_name, lambda { | log |
+results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 	BT_CONSTANTS = BTConstants.get_constants
 	url = BT_CONSTANTS[:amazon_kdp_url]
 	
@@ -107,16 +125,17 @@ def save_sales_data_to_parse(results)
 		#setting the crawl date
 		crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/%d")+" "+Time.now().strftime("%H:%M:%S"))
 	
-		#TODO: only do this if it's not the first of the month.
-		#checking to see if we have a record from the previous day. 
-		old_sales_data = Parse::Query.new("AmazonSalesData").tap do |q|
-			q.greater_than("crawlDate", Parse::Date.new(((Date.today-1).strftime("%Y/%m/%d")+" "+"00:00:00")))
-			q.eq("asin", result[:asin])
-			q.eq("country", result[:country])
-			q.order_by = "crawlDate"
-			q.order = :descending
-			q.limit = 1
-		end.get.first
+		#checking to see if we have a record from the previous day only if it's not the first of the month.
+		if Date.today.day != 1
+			old_sales_data = Parse::Query.new("AmazonSalesData").tap do |q|
+				q.greater_than("crawlDate", Parse::Date.new(((Date.today-1).strftime("%Y/%m/01")+" "+"00:00:00")))
+				q.eq("asin", result[:asin])
+				q.eq("country", result[:country])
+				q.order_by = "crawlDate"
+				q.order = :descending
+				q.limit = 1
+			end.get.first
+		end
 	
 		#amazon tracks month to date sales, so we need to subtract yesterday's net from today's
 		if !old_sales_data.nil?
@@ -132,7 +151,7 @@ def save_sales_data_to_parse(results)
 		if book.nil?
 			book = Parse::Object.new("Book")
 			book["asin"] = result[:asin]
-			book.save
+			book.save if !$opts.dontSaveToParse
 		end
 	
 		amazon_sales_data = Parse::Object.new("AmazonSalesData")
@@ -144,7 +163,7 @@ def save_sales_data_to_parse(results)
 		amazon_sales_data["crawlDate"] = crawl_date
 		amazon_sales_data["dailySales"] = daily_sales
 		
-		amazon_sales_data.save
+		amazon_sales_data.save if !$opts.dontSaveToParse
 		
 	end
 end
