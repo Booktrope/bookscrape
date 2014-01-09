@@ -1,6 +1,7 @@
 require 'nokogiri'
 require 'trollop'
 require 'parse-ruby-client'
+require 'time'
 
 basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
@@ -23,9 +24,26 @@ Extracts book sales data from iTunes Connect
 end
 
 should_run_headless = ($opts.headless) ?  true : false
-
 class_name = "Salesdata_Extraction::Apple_reporter"
+
+def get_sales_from_table(the_sales_table, sales_date)
+	results = Array.new
+	the_sales_table.each do | row |
+		row_hash = Hash.new
+		row_hash[:title] = row.children[0].text
+		row_hash[:units_sold] = row.children[4].text
+		row_hash[:country] = row.children[7].text
+		row_hash[:apple_id] = row.children[8].text
+		row_hash[:crawl_date] = sales_date
+		puts sales_date
+		results.push(row_hash)
+	end
+	return results
+end
+
+
 results = Selenium_harness.run(should_run_headless,class_name, lambda { | log |
+	results = Array.new
 	BT_CONSTANTS = BTConstants.get_constants
 	url = BT_CONSTANTS[:itunes_connect_url]
 	
@@ -43,8 +61,9 @@ results = Selenium_harness.run(should_run_headless,class_name, lambda { | log |
 	sales_and_trends_link = Selenium_harness.find_element(:link_text, "Sales and Trends")
 	sales_and_trends_link.click
 	
-	
 	wait = Selenium::WebDriver::Wait.new(:timeout => 5)
+	
+	wait.until { Selenium_harness.find_element(:id, "chart_canvas_kit").displayed? }
 	wait.until { Selenium_harness.find_element(:link_text, "Sales") }
 	
 	sales_link = Selenium_harness.find_element(:link_text, "Sales")
@@ -53,19 +72,33 @@ results = Selenium_harness.run(should_run_headless,class_name, lambda { | log |
 	sleep(5.0)
 	#wait.until { Selenium_harness.find_element(:xpath, "//table[@id='theForm:salesTable']/tbody/tr") }
 
-	the_page_data = Nokogiri.parse(Selenium_harness.page_source)
+
 	
+	the_page_data = Nokogiri.parse(Selenium_harness.page_source)	
 	the_sales_table = the_page_data.css("//table[@id='theForm:salesTable']/tbody/tr")
 	
-	results = Array.new
-	the_sales_table.each do | row |
-		row_hash = Hash.new
-		row_hash[:title] = row.children[0].text
-		row_hash[:units_sold] = row.children[4].text
-		row_hash[:country] = row.children[7].text
-		row_hash[:apple_id] = row.children[8].text
-		results.push(row_hash)
-	end
+	#getting the current date
+	date = the_page_data.css("div#chosenDate")
+	
+	date_parts = date.text.strip.split
+	sales_date = "#{date_parts[2]}/#{Date::ABBR_MONTHNAMES.index(date_parts[0]).to_s.rjust(2,'0')}/#{date_parts[1].gsub(/,/,"").rjust(2,'0')} 00:00:00"
+   results.concat get_sales_from_table(the_sales_table, sales_date)
+   
+   date_back_button = Selenium_harness.find_element(:id, "incrLess")
+   while(date_back_button.attribute("class") != "disabled")
+   	date_back_button.click
+   	sleep(5.0)
+   	
+		the_page_data = Nokogiri.parse(Selenium_harness.page_source)
+		the_sales_table = the_page_data.css("//table[@id='theForm:salesTable']/tbody/tr")
+		date = the_page_data.css("div#chosenDate")
+	
+		date_parts = date.text.strip.split
+		sales_date = "#{date_parts[2]}/#{Date::ABBR_MONTHNAMES.index(date_parts[0]).to_s.rjust(2,'0')}/#{date_parts[1].gsub(/,/,"").rjust(2,'0')} 00:00:00"
+   	
+   	results.concat get_sales_from_table(the_sales_table, sales_date)
+   end
+	
 	return results
 })
 
@@ -102,12 +135,15 @@ def save_sales_data_to_parse(results)
 		apple_sales_data["appleId"] = result[:apple_id].to_i
 		apple_sales_data["dailySales"] = result[:units_sold].to_i
 		apple_sales_data["country"] = result[:country]
-		#TODO: get the date out of the page.
-		apple_sales_data["crawlDate"] = Parse::Date.new((Date.today).strftime("%Y/%m/%d")+" 00:00:00")
+		apple_sales_data["crawlDate"] = Parse::Date.new(result[:crawl_date])
 		
-		apple_sales_data.save if !$opts.dontSaveToParse
-		
-		puts "#{result[:title]}\t#{result[:units_sold]}\t#{result[:country]}\t#{result[:apple_id]}"
+		puts "#{result[:title]}\t#{result[:units_sold]}\t#{result[:country]}\t#{result[:apple_id]}\t#{result[:crawl_date]}"	
+		begin	
+			apple_sales_data.save if !$opts.dontSaveToParse
+		rescue Exception => e
+			puts e.message
+		end
+		sleep(15.0)
 	end
 end
 
