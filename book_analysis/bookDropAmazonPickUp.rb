@@ -194,8 +194,6 @@ Dir.mkdir($cron_dir) unless File.exists?($cron_dir)
 
 shouldSaveToParse = opts.dontSaveToParse ? false : true;
 
-
-#loading the ./config/config.json file and parsing into a json object.
 BT_CONSTANTS = BTConstants.get_constants
 Amazon::Ecs.options = {
 :associate_tag     => BT_CONSTANTS[:amazon_ecs_associate_tag],

@@ -1,4 +1,5 @@
 require 'nokogiri'
+require 'trollop'
 require 'parse-ruby-client'
 
 basePath = File.absolute_path(File.dirname(__FILE__))
@@ -6,8 +7,25 @@ basePath = File.absolute_path(File.dirname(__FILE__))
 require File.join(basePath, "..", "ruby_modules", "constants")
 require File.join(basePath, "..", "ruby_modules", "selenium_harness")
 
+$opts = Trollop::options do
+
+   banner <<-EOS
+Extracts book sales data from createspace
+
+   Usage:
+            ruby createspace_reporter.rb [--dontSaveToParse] [--headless]
+   EOS
+
+   opt :dontSaveToParse, "Turns off parse", :short => 'x'
+   opt :headless, "Runs headless", :short => 'h'
+   version "1.0.0 2014 Justin Jeffress"
+
+end
+
+should_run_headless = ($opts.headless) ?  true : false
+
 class_name = "Salesdata_Extraction::Createspace_reporter"
-results = Selenium_harness.run(class_name, lambda { | log |
+results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 
 	results = Array.new
 	BT_CONSTANTS = BTConstants.get_constants
@@ -35,11 +53,10 @@ results = Selenium_harness.run(class_name, lambda { | log |
 	
 	#wait.until { Selenium_harness.find_element(:id, "searchFormSection_edit") }
 	#run_new_report_button = Selenium_harness.find_element(:id, "searchFormSection_edit")
-	#pp run_new_report_button
 	#puts run_new_report_button.attribute("value")
 	#run_new_report_button.click
 	
-	wait.until { Selenium_harness.find_element(:id, "member_reports_dateoptions") }
+	wait.until { Selenium_harness.find_element(:id, "member_reports_dateoptions").displayed? }
 	
 	report_select = Selenium_harness.find_element(:id, "member_reports_dateoptions")
 	report_options = report_select.find_elements(:tag_name, "option")	
@@ -60,12 +77,11 @@ results = Selenium_harness.run(class_name, lambda { | log |
 	run_report_button = Selenium_harness.find_element(:id, "searchFormSection_save")
 	run_report_button.click
 	
-	wait.until { Selenium_harness.find_element(:css, "div#resultTable table tbody tr") }
+	wait.until { Selenium_harness.find_element(:css, "div#resultTable table tbody tr").displayed? }
 	
 	the_page_data = Nokogiri.parse(Selenium_harness.page_source)
 
 	the_sales_table = the_page_data.css("div#resultTable table tbody tr")
-	pp the_sales_table
 	the_sales_table.each do | row |
 		row_data = Hash.new
 		row_data[:title] = row.children[0].text.strip
@@ -77,7 +93,6 @@ results = Selenium_harness.run(class_name, lambda { | log |
 	end
 	
 	return results
-	
 })
 
 def get_book_hash()
@@ -135,7 +150,7 @@ def save_sales_data_to_parse(results)
 		cs_sales_data["country"] = $amazon_channels[result[:channel]]
 		cs_sales_data["crawlDate"] = crawl_date
 		cs_sales_data["dailySales"] = daily_sales
-		cs_sales_data.save
+		cs_sales_data.save if !$opts.dontSaveToParse
 	end	
 end
 
