@@ -31,7 +31,7 @@ module Selenium_harness
 		#puts "SELENIUM_HARNESS::SETUP #{Selenium::WebDriver::Firefox::Binary.path}"
 
 
-		@driver = Selenium::WebDriver.for :firefox, :profile => profile
+		@driver = Selenium::WebDriver.for :firefox , :profile => profile
 	end
 	
 	def self.teardown
@@ -52,7 +52,14 @@ module Selenium_harness
 					log.info "ending"
 				end
 			rescue Exception => e
-			 log.error e.message
+				log.error e.message
+				lines = e.backtrace.map{ |x|
+					x.match(/^(.+?):(\d+)(|:in `(.+)')$/);
+					[$1,$2,$4]
+				}
+				lines.each do | line |
+					log.error "%s,%s,%s" % [ line[0], line[1], line[2]]
+				end
 			end
 			self.teardown			
 			return results
