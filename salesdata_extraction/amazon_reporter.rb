@@ -29,32 +29,42 @@ results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 	BT_CONSTANTS = BTConstants.get_constants
 	url = BT_CONSTANTS[:amazon_kdp_url]
 	
+	#getting the amazon kdp page
 	Selenium_harness.get(url)
 	
+	#clicking the login button
 	sign_button = Selenium_harness.find_element(:id, "dtp_signin")
 	sign_button.click
 	
+	#entering the username and password
 	username_input = Selenium_harness.find_element(:id, "ap_email")
 	username_input.send_keys BT_CONSTANTS[:amazon_kdp_username]
 	
 	password_input = Selenium_harness.find_element(:id, "ap_password")
 	password_input.send_keys BT_CONSTANTS[:amazon_kdp_password]
 	
+	#clicking the login button
 	login_button = Selenium_harness.find_element(:id, "signInSubmit-input")
 	login_button.click
 	
+	#clicking on the reports button
 	report_link = Selenium_harness.find_element(:link_text, "Reports")
 	report_link.click
 	
+	#clicking on the month to date sales
 	month_to_date_sales_link = Selenium_harness.find_element(:id, "mtdLink")
 	month_to_date_sales_link.click
 	
-	sleep(5.0)
+	wait = Selenium::WebDriver::Wait.new(:timeout => 5)
+	wait.until { Selenium_harness.find_element(:css, "table#promotionTransactionsReports tbody tr").displayed? }
 	
+	#The country that appears first is US so we set it to US.
 	country = "US"
 	
 	results = Array.new
 	
+	#declaring our lambda function since we need to run this code both outside and inside the loop.
+	#sure we can do it with a loop but closures are fun too.
 	print_lambda = lambda { | extraction_array |
 		report_page = Nokogiri.parse(Selenium_harness.page_source)
 		promo_table_rows = report_page.css("table#promotionTransactionsReports tbody tr")
@@ -71,8 +81,10 @@ results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 		return extraction_array
 	}
 	
+	#extracting the data from the US
 	results.concat(print_lambda.call(Array.new))
 
+	#getting the dropdown for country stores and looping through each country
 	report_select = Selenium_harness.find_element(:id, "marketplaceSelect")
 	report_options = report_select.find_elements(:tag_name, "option")
 	report_options.each do | option |
