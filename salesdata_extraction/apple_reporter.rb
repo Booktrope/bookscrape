@@ -35,7 +35,6 @@ def get_sales_from_table(the_sales_table, sales_date)
 		row_hash[:country] = row.children[7].text
 		row_hash[:apple_id] = row.children[8].text
 		row_hash[:crawl_date] = sales_date
-		puts sales_date
 		results.push(row_hash)
 	end
 	return results
@@ -72,7 +71,6 @@ results = Selenium_harness.run(should_run_headless,class_name, lambda { | log |
 	sleep(5.0)
 	#wait.until { Selenium_harness.find_element(:xpath, "//table[@id='theForm:salesTable']/tbody/tr") }
 
-
 	
 	the_page_data = Nokogiri.parse(Selenium_harness.page_source)	
 	the_sales_table = the_page_data.css("//table[@id='theForm:salesTable']/tbody/tr")
@@ -84,20 +82,7 @@ results = Selenium_harness.run(should_run_headless,class_name, lambda { | log |
 	sales_date = "#{date_parts[2]}/#{Date::ABBR_MONTHNAMES.index(date_parts[0]).to_s.rjust(2,'0')}/#{date_parts[1].gsub(/,/,"").rjust(2,'0')} 00:00:00"
    results.concat get_sales_from_table(the_sales_table, sales_date)
    
-   date_back_button = Selenium_harness.find_element(:id, "incrLess")
-   while(date_back_button.attribute("class") != "disabled")
-   	date_back_button.click
-   	sleep(5.0)
-   	
-		the_page_data = Nokogiri.parse(Selenium_harness.page_source)
-		the_sales_table = the_page_data.css("//table[@id='theForm:salesTable']/tbody/tr")
-		date = the_page_data.css("div#chosenDate")
-	
-		date_parts = date.text.strip.split
-		sales_date = "#{date_parts[2]}/#{Date::ABBR_MONTHNAMES.index(date_parts[0]).to_s.rjust(2,'0')}/#{date_parts[1].gsub(/,/,"").rjust(2,'0')} 00:00:00"
-   	
-   	results.concat get_sales_from_table(the_sales_table, sales_date)
-   end
+	#removed code that clicks the previous date Git Hash: d7b22336ed69a8caa957b023348d360a9aee9c0e
 	
 	return results
 })
@@ -143,7 +128,7 @@ def save_sales_data_to_parse(results)
 		rescue Exception => e
 			puts e.message
 		end
-		sleep(15.0)
+		sleep(5.0)
 	end
 end
 
