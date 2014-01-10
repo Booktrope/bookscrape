@@ -141,7 +141,7 @@ def save_sales_data_to_parse(results)
 		nook_sales_data["crawlDate"] = crawl_date
 		nook_sales_data["dailySales"] = daily_sales
 		nook_sales_data.save if !$opts.dontSaveToParse
-		puts "#{nook_sales_data[:isbn]}\t#{nook_sales_data[:bn_id]}\t#{nook_sales_data[:country]}\t#{nook_sales_data[:date]}\t#{nook_sales_data[:units_sold]}"
+		puts "#{result[:isbn]}\t#{result[:bn_id]}\t#{result[:country]}\t#{result[:date]}\t#{result[:units_sold]}"
 		sleep(5.0)
 	end	
 end
