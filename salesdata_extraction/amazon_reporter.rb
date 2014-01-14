@@ -1,6 +1,7 @@
 require 'nokogiri'
 require 'trollop'
 require 'parse-ruby-client'
+require 'mail'
 
 basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
@@ -51,11 +52,13 @@ results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 	report_link = Selenium_harness.find_element(:link_text, "Reports")
 	report_link.click
 	
+	sleep(5.0)
+	
 	#clicking on the month to date sales
 	month_to_date_sales_link = Selenium_harness.find_element(:id, "mtdLink")
 	month_to_date_sales_link.click
 	
-	wait = Selenium::WebDriver::Wait.new(:timeout => 5)
+	wait = Selenium::WebDriver::Wait.new(:timeout => 15)
 	wait.until { Selenium_harness.find_element(:css, "table#promotionTransactionsReports tbody tr").displayed? }
 	
 	#The country that appears first is US so we set it to US.
@@ -127,6 +130,7 @@ end
 
 def save_sales_data_to_parse(results)
 
+	sales_data = Array.new
 	book_hash = get_book_hash
 
 	results.each do | result |
@@ -176,13 +180,62 @@ def save_sales_data_to_parse(results)
 		amazon_sales_data["dailySales"] = daily_sales
 		
 		amazon_sales_data.save if !$opts.dontSaveToParse
+		sales_data.push amazon_sales_data
 		
 	end
+	return sales_data
+end
+
+def email_body(sales_data)
+	body = "<table width=\"99%\" border=\"0\" cellpadding=\"1\" cellspacing=\"0\" bgcolor=\"#EAEAEA\">\n"
+    body = body + "   <tr>\n"
+	body = body + "      <td>\n"
+	body = body + "         <table width=\"100%\" border=\"0\" cellpadding=\"5\" cellspacing=\"0\" bgcolor=\"#FFFFFF\">\n"
+	body = body + "         <tr><th>#</th><th>ASIN</th><th>Title</th><th>Country</th><th>Daily Sales</th><th>Net Sales</th></tr>\n"	
+
+	row_color = "#EAF2FA"
+	i = 0
+	sales_data.each do | result |
+	
+		body = body + "            <tr bgcolor=\"#{row_color}\">\n"
+		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{i+1}</font></td>\n"
+		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result["asin"]}</font></td>\n"
+		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result["book"]["title"]}</font></td>\n"		
+		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result["country"]}</font></td>\n"
+		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result["dailySales"]}</font></td>\n"
+		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result["netSales"]}</font></td>\n"
+		body = body + "            </tr>\n"
+		
+		row_color = (i.even?) ? "#FFFFFF" : "#EAF2FA"
+		i = i + 1
+	end
+	
+	body = body + "         </table>\n"
+	body = body + "      </td>\n"
+	body = body + "   </tr>\n"
+	body = body + "</table>\n"
+	return body
+end
+
+def send_report_email(results)
+	mail = Mail.new do 
+		to 'justin.jeffress@booktrope.com, andy@booktrope.com'
+		from '"Booktrope Daily Crawler 1.0" <justin.jeffress@booktrope.com>'
+		subject 'Amazon Sales Numbers'
+	
+		html_part do 
+			content_type 'text/html; charset=UTF-8'
+			body email_body(results)
+		end
+	end
+	puts mail.to_s
+	mail.deliver	
 end
 
 if !results.nil? && results.count > 0
 	#initialize parse
 	Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
 		        :api_key        => BT_CONSTANTS[:parse_api_key]
-	save_sales_data_to_parse(results)
+	sales_data = save_sales_data_to_parse(results)
+	send_report_email(sales_data)
 end

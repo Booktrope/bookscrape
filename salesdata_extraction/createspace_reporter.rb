@@ -1,6 +1,7 @@
 require 'nokogiri'
 require 'trollop'
 require 'parse-ruby-client'
+require 'mail'
 
 basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
@@ -154,9 +155,55 @@ def save_sales_data_to_parse(results)
 	end	
 end
 
+def email_body(results)
+	body = "<table width=\"99%\" border=\"0\" cellpadding=\"1\" cellspacing=\"0\" bgcolor=\"#EAEAEA\">\n"
+    body = body + "   <tr>\n"
+	body = body + "      <td>\n"
+	body = body + "         <table width=\"100%\" border=\"0\" cellpadding=\"5\" cellspacing=\"0\" bgcolor=\"#FFFFFF\">\n"
+	body = body + "         <tr><th>#</th><th>isbn</th><th>Title</th><th>Country</th><th>Daily Sales</th></tr>\n"	
+
+	row_color = "#EAF2FA"
+	i = 0
+	results.each do | result |
+		
+		body = body + "            <tr bgcolor=\"#{row_color}\">\n"
+		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px:\">#{i+1}</font></td>\n"
+		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result[:isbn]}</font></td>\n"
+		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result[:title]}</font></td>\n"		
+		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{$amazon_channels[result[:channel]]}</font></td>\n"
+		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result[:units_sold]}</font></td>\n"
+		body = body + "            </tr>\n"
+		
+		row_color = (i.even?) ? "#FFFFFF" : "#EAF2FA"
+		i = i + 1
+	end
+	
+	body = body + "         </table>\n"
+	body = body + "      </td>\n"
+	body = body + "   </tr>\n"
+	body = body + "</table>\n"
+	return body
+end
+
+def send_report_email(results)
+	mail = Mail.new do 
+		to 'justin.jeffress@booktrope.com, andy@booktrope.com'
+		from '"Booktrope Daily Crawler 1.0" <justin.jeffress@booktrope.com>'
+		subject 'Createspace Sales Numbers'
+	
+		html_part do 
+			content_type 'text/html; charset=UTF-8'
+			body email_body(results)
+		end
+	end
+	puts mail.to_s
+	mail.deliver	
+end
+
 if !results.nil? && results.count > 0
 	#initialize parse
 	Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
 		        :api_key        => BT_CONSTANTS[:parse_api_key]
 	save_sales_data_to_parse(results)
+	send_report_email(results)
 end
