@@ -7,6 +7,7 @@ basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
 require File.join(basePath, "..", "ruby_modules", "constants")
 require File.join(basePath, "..", "ruby_modules", "selenium_harness")
+require File.join(basePath, "..", "ruby_modules", "mail_helper")
 
 $opts = Trollop::options do
 
@@ -23,6 +24,7 @@ Extracts book sales data from createspace
 
 end
 
+$amazon_channels = {"Amazon" => "US", "Amazon Europe - GBP" => "GB", "Amazon Europe - EUR" => "EU" }
 should_run_headless = ($opts.headless) ?  true : false
 
 class_name = "Salesdata_Extraction::Createspace_reporter"
@@ -86,7 +88,7 @@ results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 	the_sales_table.each do | row |
 		row_data = Hash.new
 		row_data[:title] = row.children[0].text.strip
-		row_data[:channel] = row.children[2].text.strip
+		row_data[:channel] = $amazon_channels[row.children[2].text.strip]
 		row_data[:isbn] = row.children[4].text.strip
 		row_data[:asin] = row.children[6].text.strip
 		row_data[:units_sold] = row.children[8].text.strip
@@ -121,7 +123,6 @@ def get_book_hash()
 	return book_hash
 end
 
-$amazon_channels = {"Amazon" => "US", "Amazon Europe - GBP" => "GB", "Amazon Europe - EUR" => "EU" }
 
 def save_sales_data_to_parse(results)
 	book_hash = get_book_hash
@@ -148,55 +149,25 @@ def save_sales_data_to_parse(results)
 		cs_sales_data = Parse::Object.new("CreateSpaceSalesData")
 		cs_sales_data["book"] = nil
 		cs_sales_data["asin"] = result[:asin]
-		cs_sales_data["country"] = $amazon_channels[result[:channel]]
+		cs_sales_data["country"] = result[:channel]
 		cs_sales_data["crawlDate"] = crawl_date
 		cs_sales_data["dailySales"] = daily_sales
 		cs_sales_data.save if !$opts.dontSaveToParse
 	end	
 end
 
-def email_body(results)
-	body = "<table width=\"99%\" border=\"0\" cellpadding=\"1\" cellspacing=\"0\" bgcolor=\"#EAEAEA\">\n"
-    body = body + "   <tr>\n"
-	body = body + "      <td>\n"
-	body = body + "         <table width=\"100%\" border=\"0\" cellpadding=\"5\" cellspacing=\"0\" bgcolor=\"#FFFFFF\">\n"
-	body = body + "         <tr><th>#</th><th>isbn</th><th>Title</th><th>Country</th><th>Daily Sales</th></tr>\n"	
-
-	row_color = "#EAF2FA"
-	i = 0
-	results.each do | result |
-		
-		body = body + "            <tr bgcolor=\"#{row_color}\">\n"
-		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px:\">#{i+1}</font></td>\n"
-		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result[:isbn]}</font></td>\n"
-		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result[:title]}</font></td>\n"		
-		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{$amazon_channels[result[:channel]]}</font></td>\n"
-		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result[:units_sold]}</font></td>\n"
-		body = body + "            </tr>\n"
-		
-		row_color = (i.even?) ? "#FFFFFF" : "#EAF2FA"
-		i = i + 1
-	end
-	
-	body = body + "         </table>\n"
-	body = body + "      </td>\n"
-	body = body + "   </tr>\n"
-	body = body + "</table>\n"
-	return body
-end
-
 def send_report_email(results)
 	mail = Mail.new do 
-		to 'justin.jeffress@booktrope.com, andy@booktrope.com'
+		to 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com'
 		from '"Booktrope Daily Crawler 1.0" <justin.jeffress@booktrope.com>'
 		subject 'Createspace Sales Numbers'
 	
 		html_part do 
 			content_type 'text/html; charset=UTF-8'
-			body email_body(results)
+			top = "Createspace Sales Numbers for #{Date.today} PST<br />\n<br />\n"
+			body top + Mail_helper.alternating_table_body(results.sort_by{ |k| k[:units_sold] }.reverse, "isbn" => :isbn, "Title" => :title, "Country" => :channel, "Daily Sales" => :units_sold)
 		end
 	end
-	puts mail.to_s
 	mail.deliver	
 end
 
