@@ -8,6 +8,7 @@ basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
 require File.join(basePath, "..", "ruby_modules", "constants")
 require File.join(basePath, "..", "ruby_modules", "selenium_harness")
+require File.join(basePath, "..", "ruby_modules", "mail_helper")
 
 $opts = Trollop::options do
 
@@ -136,48 +137,18 @@ def save_sales_data_to_parse(results)
 	end
 end
 
-def email_body(results)
-	body = "<table width=\"99%\" border=\"0\" cellpadding=\"1\" cellspacing=\"0\" bgcolor=\"#EAEAEA\">\n"
-    body = body + "   <tr>\n"
-	body = body + "      <td>\n"
-	body = body + "         <table width=\"100%\" border=\"0\" cellpadding=\"5\" cellspacing=\"0\" bgcolor=\"#FFFFFF\">\n"
-	body = body + "         <tr><th>#</th><th>Apple ID</th><th>Title</th><th>Country</th><th>Daily Sales</th></tr>\n"	
-
-	row_color = "#EAF2FA"
-	i = 0
-	results.each do | result |
-		
-		body = body + "            <tr bgcolor=\"#{row_color}\">\n"
-		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{i+1}</font></td>\n"
-		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result[:apple_id]}</font></td>\n"
-		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result[:title]}</font></td>\n"		
-		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result[:country]}</font></td>\n"
-		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result[:units_sold]}</font></td>\n"
-		body = body + "            </tr>\n"
-		
-		row_color = (i.even?) ? "#FFFFFF" : "#EAF2FA"
-		i = i + 1
-	end
-	
-	body = body + "         </table>\n"
-	body = body + "      </td>\n"
-	body = body + "   </tr>\n"
-	body = body + "</table>\n"
-	return body
-end
-
 def send_report_email(results)
 	mail = Mail.new do 
-		to 'justin.jeffress@booktrope.com, andy@booktrope.com'
+		to 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com'
 		from '"Booktrope Daily Crawler 1.0" <justin.jeffress@booktrope.com>'
 		subject 'Apple Sales Numbers'
 	
 		html_part do 
 			content_type 'text/html; charset=UTF-8'
-			body email_body(results)
+			top = "Apple Sales Numbers for #{results[0][:crawl_date]} PST <br /><br />\n"
+			body top + Mail_helper.alternating_table_body(results, "Apple ID" => :apple_id, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold)
 		end
 	end
-	puts mail.to_s
 	mail.deliver	
 end
 
