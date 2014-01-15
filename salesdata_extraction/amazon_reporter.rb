@@ -7,6 +7,7 @@ basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
 require File.join(basePath, "..", "ruby_modules", "constants")
 require File.join(basePath, "..", "ruby_modules", "selenium_harness")
+require File.join(basePath, "..", "ruby_modules", "mail_helper")
 
 $opts = Trollop::options do
 
@@ -130,7 +131,6 @@ end
 
 def save_sales_data_to_parse(results)
 
-	sales_data = Array.new
 	book_hash = get_book_hash
 
 	results.each do | result |
@@ -159,6 +159,8 @@ def save_sales_data_to_parse(results)
 			puts "daily sales: #{daily_sales}"
 		end
 	
+		result[:daily_sales] = daily_sales
+	
 		#getting the book object to link the amazon_sales_data to.
 		book = book_hash[result[:asin]]
 		
@@ -180,55 +182,22 @@ def save_sales_data_to_parse(results)
 		amazon_sales_data["dailySales"] = daily_sales
 		
 		amazon_sales_data.save if !$opts.dontSaveToParse
-		sales_data.push amazon_sales_data
-		
 	end
-	return sales_data
 end
 
-def email_body(sales_data)
-	body = "<table width=\"99%\" border=\"0\" cellpadding=\"1\" cellspacing=\"0\" bgcolor=\"#EAEAEA\">\n"
-    body = body + "   <tr>\n"
-	body = body + "      <td>\n"
-	body = body + "         <table width=\"100%\" border=\"0\" cellpadding=\"5\" cellspacing=\"0\" bgcolor=\"#FFFFFF\">\n"
-	body = body + "         <tr><th>#</th><th>ASIN</th><th>Title</th><th>Country</th><th>Daily Sales</th><th>Net Sales</th></tr>\n"	
-
-	row_color = "#EAF2FA"
-	i = 0
-	sales_data.each do | result |
-	
-		body = body + "            <tr bgcolor=\"#{row_color}\">\n"
-		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{i+1}</font></td>\n"
-		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result["asin"]}</font></td>\n"
-		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result["book"]["title"]}</font></td>\n"		
-		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result["country"]}</font></td>\n"
-		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result["dailySales"]}</font></td>\n"
-		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result["netSales"]}</font></td>\n"
-		body = body + "            </tr>\n"
-		
-		row_color = (i.even?) ? "#FFFFFF" : "#EAF2FA"
-		i = i + 1
-	end
-	
-	body = body + "         </table>\n"
-	body = body + "      </td>\n"
-	body = body + "   </tr>\n"
-	body = body + "</table>\n"
-	return body
-end
 
 def send_report_email(results)
 	mail = Mail.new do 
-		to 'justin.jeffress@booktrope.com, andy@booktrope.com'
+		to 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com'
 		from '"Booktrope Daily Crawler 1.0" <justin.jeffress@booktrope.com>'
 		subject 'Amazon Sales Numbers'
 	
 		html_part do 
 			content_type 'text/html; charset=UTF-8'
-			body email_body(results)
+			top = "Amazon Sales Numbers for #{Date.today} PST<br />\n<br />\n"
+			body top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:daily_sales]}.reverse, "asin" => :asin, "Title" => :title, "Country" => :country, "Daily Sales" => :daily_sales, "Month To Date" => :net_sales, "Force Free" => :force_free)
 		end
 	end
-	puts mail.to_s
 	mail.deliver	
 end
 
@@ -236,6 +205,6 @@ if !results.nil? && results.count > 0
 	#initialize parse
 	Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
 		        :api_key        => BT_CONSTANTS[:parse_api_key]
-	sales_data = save_sales_data_to_parse(results)
-	send_report_email(sales_data)
+	save_sales_data_to_parse(results)
+	send_report_email(results)
 end
