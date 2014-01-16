@@ -2,7 +2,7 @@ require 'nokogiri'
 require 'trollop'
 require 'parse-ruby-client'
 require 'time'
-require 'mail'
+require 'mailgun'
 
 basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
@@ -26,14 +26,14 @@ Extracts book sales data from nook press
 end
 
 should_run_headless = ($opts.headless) ?  true : false
+$BT_CONSTANTS = BTConstants.get_constants
 
 class_name = "Salesdata_Extraction::Nookpress_reporter"
 results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 
 	results = Array.new
 
-	BT_CONSTANTS = BTConstants.get_constants
-	url = BT_CONSTANTS[:nookpress_url]
+	url = $BT_CONSTANTS[:nookpress_url]
 	
 	#requesting the page
 	Selenium_harness.get(url)
@@ -44,10 +44,10 @@ results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 	
 	#entering credentials
 	username_input = Selenium_harness.find_element(:id, "email")
-	username_input.send_keys BT_CONSTANTS[:nookpress_username]
+	username_input.send_keys $BT_CONSTANTS[:nookpress_username]
 	
 	password_input = Selenium_harness.find_element(:id, "password")
-	password_input.send_keys BT_CONSTANTS[:nookpress_password]
+	password_input.send_keys $BT_CONSTANTS[:nookpress_password]
 	
 	#clicking on the login button
 	login_button = Selenium_harness.find_element(:id, "login_button")
@@ -150,24 +150,22 @@ def save_sales_data_to_parse(results)
 end
 
 def send_report_email(results)
-	mail = Mail.new do 
-		to 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com'
-		from '"Booktrope Daily Crawler 1.0" <justin.jeffress@booktrope.com>'
-		subject 'Nookpress Sales Numbers'
-	
-		html_part do 
-			content_type 'text/html; charset=UTF-8'
-			top = "Nookpress Sales Numbers for #{results[0][:date]} PST<br />\n<br />\n"
-			body top + Mail_helper.alternating_table_body(results.sort_by{ |k| k[:units_sold] }.reverse, "Nook Id" => :bn_id,"isbn" => :isbn, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold)
-		end
-	end
-	mail.deliver	
+	top = "Nookpress Sales Numbers for #{results[0][:date]} PST<br />\n<br />\n"
+	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
+	email_parameters = {
+		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com',
+		:from    =>	'"Booktrope Daily Crawler 1.0" <justin.jeffress@booktrope.com>',
+		:subject => 'Nookpress Sales Numbers',
+		:html    => top + Mail_helper.alternating_table_body(results.sort_by{ |k| k[:units_sold] }.reverse, "Nook Id" => :bn_id,"isbn" => :isbn, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold)
+	}
+
+	mailgun.messages.send_email(email_parameters)
 end
 
 if !results.nil? && results.count > 0
 	#initialize parse
-	Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
-		        :api_key        => BT_CONSTANTS[:parse_api_key]
+	Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
+		        :api_key        => $BT_CONSTANTS[:parse_api_key]
 	save_sales_data_to_parse(results)
 	send_report_email(results)
 end
