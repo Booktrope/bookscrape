@@ -5,45 +5,51 @@ require 'json'
 
 #The amazon ecs keys (used for referring to the key values in a config.json file)
 class CONST_AWS
-	LABEL = "amazon-ecs"
+	LABEL         = "amazon-ecs"
 	ASSOCIATE_TAG = "associate_tag"
 	ACCESS_KEY_ID = "access_key_id"
-	SECRET_KEY = "secret_key"
+	SECRET_KEY    = "secret_key"
 end
 
 class CONST_KDP
-	LABEL = "amazon-kdp"
-	URL = "url"
+	LABEL    = "amazon-kdp"
+	URL      = "url"
 	USERNAME = "username"
 	PASSWORD = "password"
 end
 
 #The parse.com keys (used for referring to the key values in a config.json file)
 class CONST_PARSE
-	LABEL = "parse"
+	LABEL          = "parse"
 	APPLICATION_ID = "application_id"
-	API_KEY = "api_key"
+	API_KEY        = "api_key"
 end
 
 class CONST_ITUNES_CONNECT
-	LABEL = "itunes"
-	URL = "url"
+	LABEL    = "itunes"
+	URL      = "url"
 	USERNAME = "username"
 	PASSWORD = "password"
 end
 
 class CONST_NOOKPRESS
-	LABEL = "nookpress"
-	URL = "url"
+	LABEL    = "nookpress"
+	URL      = "url"
 	USERNAME = "username"
 	PASSWORD = "password"
 end
 
 class CONST_CREATESPACE
-	LABEL = "createspace"
-	URL = "url"
+	LABEL    = "createspace"
+	URL      = "url"
 	USERNAME = "username"
 	PASSWORD = "password"
+end
+
+class CONST_MAILGUN
+	LABEL   = "mailgun"
+	API_KEY = "api_key"
+	DOMAIN  = "domain"
 end
 
 module BTConstants
@@ -83,6 +89,9 @@ module BTConstants
 		hash[:createspace_url]      = config_json[CONST_CREATESPACE::LABEL][CONST_CREATESPACE::URL]
 		hash[:createspace_username] = config_json[CONST_CREATESPACE::LABEL][CONST_CREATESPACE::USERNAME]
 		hash[:createspace_password] = config_json[CONST_CREATESPACE::LABEL][CONST_CREATESPACE::PASSWORD]
+		
+		hash[:mailgun_api_key] = config_json[CONST_MAILGUN::LABEL][CONST_MAILGUN::API_KEY]
+		hash[:mailgun_domain]  = config_json[CONST_MAILGUN::LABEL][CONST_MAILGUN::DOMAIN]
 		
 		return hash
 	end

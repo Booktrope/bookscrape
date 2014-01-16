@@ -1,7 +1,7 @@
 require 'nokogiri'
 require 'trollop'
 require 'parse-ruby-client'
-require 'mail'
+require 'mailgun'
 
 basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
@@ -26,10 +26,12 @@ end
 
 should_run_headless = ($opts.headless) ?  true : false
 
+$BT_CONSTANTS = BTConstants.get_constants
+
 class_name = "Salesdata_Extraction::Amazon_reporter"
 results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
-	BT_CONSTANTS = BTConstants.get_constants
-	url = BT_CONSTANTS[:amazon_kdp_url]
+	
+	url = $BT_CONSTANTS[:amazon_kdp_url]
 	
 	#getting the amazon kdp page
 	Selenium_harness.get(url)
@@ -40,10 +42,10 @@ results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 	
 	#entering the username and password
 	username_input = Selenium_harness.find_element(:id, "ap_email")
-	username_input.send_keys BT_CONSTANTS[:amazon_kdp_username]
+	username_input.send_keys $BT_CONSTANTS[:amazon_kdp_username]
 	
 	password_input = Selenium_harness.find_element(:id, "ap_password")
-	password_input.send_keys BT_CONSTANTS[:amazon_kdp_password]
+	password_input.send_keys $BT_CONSTANTS[:amazon_kdp_password]
 	
 	#clicking the login button
 	login_button = Selenium_harness.find_element(:id, "signInSubmit-input")
@@ -187,24 +189,22 @@ end
 
 
 def send_report_email(results)
-	mail = Mail.new do 
-		to 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com'
-		from '"Booktrope Daily Crawler 1.0" <justin.jeffress@booktrope.com>'
-		subject 'Amazon Sales Numbers'
-	
-		html_part do 
-			content_type 'text/html; charset=UTF-8'
-			top = "Amazon Sales Numbers for #{Date.today} PST<br />\n<br />\n"
-			body top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:daily_sales]}.reverse, "asin" => :asin, "Title" => :title, "Country" => :country, "Daily Sales" => :daily_sales, "Month To Date" => :net_sales, "Force Free" => :force_free)
-		end
-	end
-	mail.deliver	
+	top = "Amazon Sales Numbers for #{Date.today} PST<br />\n<br />\n"
+	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
+	email_parameters = {
+		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com',
+		:from    =>	'"Booktrope Daily Crawler 1.0" <justin.jeffress@booktrope.com>',
+		:subject => 'Amazon Sales Numbers',
+		:html    => top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:daily_sales]}.reverse, "asin" => :asin, "Title" => :title, "Country" => :country, "Daily Sales" => :daily_sales, "Month To Date" => :net_sales, "Force Free" => :force_free)
+	}
+
+	mailgun.messages.send_email(email_parameters)
 end
 
 if !results.nil? && results.count > 0
 	#initialize parse
-	Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
-		        :api_key        => BT_CONSTANTS[:parse_api_key]
+	Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
+		        :api_key        => $BT_CONSTANTS[:parse_api_key]
 	save_sales_data_to_parse(results)
 	send_report_email(results)
 end

@@ -27,5 +27,9 @@
     "url": "https://www.createspace.com/Login.do?redirectURL=pub/member.dashboard.do",
     "username": "production@booktrope.com",
     "password": "L1bertar4***"
+  },
+   "mailgun":{
+     "api_key": "key-4qtjslqkjyb1-yj0l0zzxzmw6symk405",
+     "domain": "sandbox93022.mailgun.org"
   }
 }
