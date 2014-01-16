@@ -2,7 +2,7 @@ require 'nokogiri'
 require 'trollop'
 require 'parse-ruby-client'
 require 'time'
-require 'mail'
+require 'mailgun'
 
 basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
@@ -42,19 +42,19 @@ def get_sales_from_table(the_sales_table, sales_date)
 	return results
 end
 
-
+$BT_CONSTANTS = BTConstants.get_constants
 results = Selenium_harness.run(should_run_headless,class_name, lambda { | log |
 	results = Array.new
-	BT_CONSTANTS = BTConstants.get_constants
-	url = BT_CONSTANTS[:itunes_connect_url]
+
+	url = $BT_CONSTANTS[:itunes_connect_url]
 	
 	Selenium_harness.get(url)	
 	
 	username_input = Selenium_harness.find_element(:id, "accountname")
-	username_input.send_keys BT_CONSTANTS[:itunes_connect_username]
+	username_input.send_keys $BT_CONSTANTS[:itunes_connect_username]
 	
 	password_input = Selenium_harness.find_element(:id, "accountpassword")
-	password_input.send_keys BT_CONSTANTS[:itunes_connect_password]
+	password_input.send_keys $BT_CONSTANTS[:itunes_connect_password]
 	
 	login_button = Selenium_harness.find_element(:xpath, "(//input[@name='1.Continue'])[2]")
 	login_button.click
@@ -138,24 +138,24 @@ def save_sales_data_to_parse(results)
 end
 
 def send_report_email(results)
-	mail = Mail.new do 
-		to 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com'
-		from '"Booktrope Daily Crawler 1.0" <justin.jeffress@booktrope.com>'
-		subject 'Apple Sales Numbers'
-	
-		html_part do 
-			content_type 'text/html; charset=UTF-8'
-			top = "Apple Sales Numbers for #{results[0][:crawl_date]} PST <br /><br />\n"
-			body top + Mail_helper.alternating_table_body(results, "Apple ID" => :apple_id, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold)
-		end
-	end
-	mail.deliver	
+
+	top = "Apple Sales Numbers for #{results[0][:crawl_date]} PST <br /><br />\n"
+	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
+	email_parameters = {
+		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com',
+		:from    =>	'"Booktrope Daily Crawler 1.0" <justin.jeffress@booktrope.com>',
+		:subject => 'Apple Sales Numbers',
+		:html    => top + Mail_helper.alternating_table_body(results, "Apple ID" => :apple_id, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold)
+	}
+
+	mailgun.messages.send_email(email_parameters)
+
 end
 
 if !results.nil? && results.count > 0
 	#initialize parse
-	Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
-		        :api_key        => BT_CONSTANTS[:parse_api_key]
+	Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
+		        :api_key        => $BT_CONSTANTS[:parse_api_key]
 	save_sales_data_to_parse(results)
 	send_report_email(results)
 end
