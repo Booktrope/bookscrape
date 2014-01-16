@@ -1,7 +1,7 @@
 require 'nokogiri'
 require 'trollop'
 require 'parse-ruby-client'
-require 'mail'
+require 'mailgun'
 
 basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
@@ -27,20 +27,22 @@ end
 $amazon_channels = {"Amazon" => "US", "Amazon Europe - GBP" => "GB", "Amazon Europe - EUR" => "EU" }
 should_run_headless = ($opts.headless) ?  true : false
 
+$BT_CONSTANTS = BTConstants.get_constants
+
 class_name = "Salesdata_Extraction::Createspace_reporter"
 results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 
 	results = Array.new
-	BT_CONSTANTS = BTConstants.get_constants
-	url = BT_CONSTANTS[:createspace_url]
+	
+	url = $BT_CONSTANTS[:createspace_url]
 	
 	Selenium_harness.get(url)
 	
 	username_input = Selenium_harness.find_element(:id, "loginField")
-	username_input.send_keys BT_CONSTANTS[:createspace_username]
+	username_input.send_keys $BT_CONSTANTS[:createspace_username]
 	
 	password_input = Selenium_harness.find_element(:id, "passwordField")
-	password_input.send_keys BT_CONSTANTS[:createspace_password]
+	password_input.send_keys $BT_CONSTANTS[:createspace_password]
 	
 	login_button = Selenium_harness.find_element(:id, "login_button")
 	login_button.click
@@ -157,24 +159,22 @@ def save_sales_data_to_parse(results)
 end
 
 def send_report_email(results)
-	mail = Mail.new do 
-		to 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com'
-		from '"Booktrope Daily Crawler 1.0" <justin.jeffress@booktrope.com>'
-		subject 'Createspace Sales Numbers'
-	
-		html_part do 
-			content_type 'text/html; charset=UTF-8'
-			top = "Createspace Sales Numbers for #{Date.today} PST<br />\n<br />\n"
-			body top + Mail_helper.alternating_table_body(results.sort_by{ |k| k[:units_sold] }.reverse, "isbn" => :isbn, "Title" => :title, "Country" => :channel, "Daily Sales" => :units_sold)
-		end
-	end
-	mail.deliver	
+	top = "Createspace Sales Numbers for #{Date.today} PST<br />\n<br />\n"
+	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
+	email_parameters = {
+		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com',
+		:from    =>	'"Booktrope Daily Crawler 1.0" <justin.jeffress@booktrope.com>',
+		:subject => 'Createspace Sales Numbers',
+		:html    => top + Mail_helper.alternating_table_body(results.sort_by{ |k| k[:units_sold] }.reverse, "isbn" => :isbn, "Title" => :title, "Country" => :channel, "Daily Sales" => :units_sold)
+	}
+
+	mailgun.messages.send_email(email_parameters)
 end
 
 if !results.nil? && results.count > 0
 	#initialize parse
-	Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
-		        :api_key        => BT_CONSTANTS[:parse_api_key]
+	Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
+		        :api_key        => $BT_CONSTANTS[:parse_api_key]
 	save_sales_data_to_parse(results)
 	send_report_email(results)
 end
