@@ -46,6 +46,13 @@ class CONST_CREATESPACE
 	PASSWORD = "password"
 end
 
+class CONST_LIGHTNING_SOURCE
+	LABEL    = "lightning-source"
+	URL      = "url"
+	USERNAME = "username"
+	PASSWORD = "password"
+end
+
 class CONST_MAILGUN
 	LABEL   = "mailgun"
 	API_KEY = "api_key"
@@ -89,6 +96,10 @@ module BTConstants
 		hash[:createspace_url]      = config_json[CONST_CREATESPACE::LABEL][CONST_CREATESPACE::URL]
 		hash[:createspace_username] = config_json[CONST_CREATESPACE::LABEL][CONST_CREATESPACE::USERNAME]
 		hash[:createspace_password] = config_json[CONST_CREATESPACE::LABEL][CONST_CREATESPACE::PASSWORD]
+
+		hash[:lightning_source_url]      = config_json[CONST_LIGHTNING_SOURCE::LABEL][CONST_LIGHTNING_SOURCE::URL]
+		hash[:lightning_source_username] = config_json[CONST_LIGHTNING_SOURCE::LABEL][CONST_LIGHTNING_SOURCE::USERNAME]
+		hash[:lightning_source_password] = config_json[CONST_LIGHTNING_SOURCE::LABEL][CONST_LIGHTNING_SOURCE::PASSWORD]
 		
 		hash[:mailgun_api_key] = config_json[CONST_MAILGUN::LABEL][CONST_MAILGUN::API_KEY]
 		hash[:mailgun_domain]  = config_json[CONST_MAILGUN::LABEL][CONST_MAILGUN::DOMAIN]
