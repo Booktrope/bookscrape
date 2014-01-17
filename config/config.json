@@ -28,6 +28,11 @@
     "username": "production@booktrope.com",
     "password": "L1bertar4***"
   },
+  "lightning-source": {
+    "url": "https://www1.lightningsource.com/default.aspx",
+    "username": "libertary",
+    "password": "L1bertar4***"
+  },
    "mailgun":{
      "api_key": "key-4qtjslqkjyb1-yj0l0zzxzmw6symk405",
      "domain": "sandbox93022.mailgun.org"
