@@ -124,7 +124,7 @@ def save_sales_data_to_parse(results)
 		apple_sales_data["country"] = result[:country]
 		apple_sales_data["crawlDate"] = Parse::Date.new(result[:crawl_date])
 		
-		puts "#{result[:title]}\t#{result[:units_sold]}\t#{result[:country]}\t#{result[:apple_id]}\t#{result[:crawl_date]}"	
+		puts "#{result[:title]}\t#{result[:units_sold]}\t#{result[:country]}\t#{result[:apple_id]}\t#{result[:crawl_date]}" if $opts.dontSaveToParse
 		
 		if !$opts.dontSaveToParse
 			begin	
