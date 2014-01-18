@@ -62,37 +62,46 @@ results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 	
 	report_link.click
 	
-	start_date_field = Selenium_harness.find_element(:id, "_ctl0_MainContent_PeriodEntry_txtDate1")
-	end_date_field   = Selenium_harness.find_element(:id, "_ctl0_MainContent_PeriodEntry_txtDate2")
+	reports = [	{:operating_unit => "_ctl0_MainContent_optOrgID_0", :currency => "_ctl0_MainContent_optCurrency_4", :country => "US"},
+					{:operating_unit => "_ctl0_MainContent_optOrgID_1", :currency => "_ctl0_MainContent_optCurrency_1", :country => "GB"},
+					{:operating_unit => "_ctl0_MainContent_optOrgID_2", :currency => "_ctl0_MainContent_optCurrency_0", :country => "AU"}]
 	
-	start_date_field.send_keys (Date.today-1).strftime("%m/%d/%Y")
-	end_date_field.send_keys (Date.today-1).strftime("%m/%d/%Y")
+	reports.each do | options |
+		start_date_field = Selenium_harness.find_element(:id, "_ctl0_MainContent_PeriodEntry_txtDate1")
+		end_date_field   = Selenium_harness.find_element(:id, "_ctl0_MainContent_PeriodEntry_txtDate2")
 	
-	Selenium_harness.find_element(:id, "_ctl0_MainContent_optOrgID_0").click
-	Selenium_harness.find_element(:id, "_ctl0_MainContent_optCurrency_4").click
-	Selenium_harness.find_element(:id, "_ctl0_MainContent_optCompensationType_0").click
-	
-	submit_button = Selenium_harness.find_element(:id, "_ctl0_MainContent_btnSubmit")
-	submit_button.click
-	
-	the_page_data = Nokogiri.parse(Selenium_harness.page_source)	
-	the_sales_table = the_page_data.css("table.lsiTable tr")
+		start_date_field.send_keys (Date.today-1).strftime("%m/%d/%Y")
+		end_date_field.send_keys (Date.today-1).strftime("%m/%d/%Y")
 
-
-	the_sales_table.each do | row |
-		next if row.children[0].text == "ISBN" || row.children[0].text.gsub(/(\xC2\xA0)+$/,"") == ""
+		Selenium_harness.find_element(:id, options[:operating_unit]).click
+		Selenium_harness.find_element(:id, options[:currency]).click
+		Selenium_harness.find_element(:id, "_ctl0_MainContent_optCompensationType_0").click
 	
-		row_hash = Hash.new
-		row_hash[:isbn]              = row.children[0].text.strip
-		row_hash[:title]             = row.children[2].text.strip
-		row_hash[:author]            = row.children[4].text.strip
-		row_hash[:quantity_sold]     = row.children[12].text.strip.to_i
-		row_hash[:quantity_returned] = row.children[14].text.strip.to_i
-		row_hash[:net_quantity]      = row.children[16].text.strip.to_i
-		row_hash[:country]           = "US"
-		row_hash[:crawl_date]         = (Date.today-1).strftime("%Y/%m/%d")+" "+"00:00:00"
-		results.push row_hash
-	end
+		submit_button = Selenium_harness.find_element(:id, "_ctl0_MainContent_btnSubmit")
+		submit_button.click
+	
+		the_page_data = Nokogiri.parse(Selenium_harness.page_source)	
+		the_sales_table = the_page_data.css("table.lsiTable tr")
+
+		the_sales_table.each do | row |
+			next if row.children[0].text == "ISBN" || row.children[0].text.gsub(/(\xC2\xA0)+$/,"") == ""
+			break if row.children[0].text.strip == "Your search criteria produced no results."
+		
+			row_hash = Hash.new
+			row_hash[:isbn]              = row.children[0].text.strip
+			row_hash[:title]             = row.children[2].text.strip
+			row_hash[:author]            = row.children[4].text.strip
+			row_hash[:quantity_sold]     = row.children[12].text.strip.to_i
+			row_hash[:quantity_returned] = row.children[14].text.strip.to_i
+			row_hash[:net_quantity]      = row.children[16].text.strip.to_i
+			row_hash[:country]           = options[:country]
+			row_hash[:crawl_date]        = (Date.today-1).strftime("%Y/%m/%d")+" "+"00:00:00"
+			results.push row_hash
+		end
+	
+		back_to_report = Selenium_harness.find_element(:id, "_ctl0_MainContent_BackToSearchButton")
+		back_to_report.click if options[:operating_unit] != reports[-1][:operating_unit] # don't click the 'New Report' if the current report is the last one.
+	end	
 	
 	return results
 })
@@ -131,7 +140,7 @@ def save_sales_data_to_parse(results)
 		lightning_data["country"] = result[:country]
 		lightning_data["crawlDate"] = Parse::Date.new(result[:crawl_date])
 		
-		puts "#{result[:isbn]}\t#{result[:title]}\t#{result[:country]}\t#{result[:net_quantity]}\t#{result[:crawl_date]}"	
+		puts "#{result[:isbn]}\t#{result[:title]}\t#{result[:country]}\t#{result[:net_quantity]}\t#{result[:crawl_date]}"	if $opts.dontSaveToParse
 		
 		if !$opts.dontSaveToParse
 			begin	
@@ -145,18 +154,16 @@ def save_sales_data_to_parse(results)
 end
 
 def send_report_email(results)
-
-	top = "Lightning Source Sales Numbers for #{results[0][:crawl_date]} PST <br /><br />\n"
+	top = "Lightning Source Sales Numbers for #{results[0][:crawl_date]} PST<br /><br />\n"
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	email_parameters = {
-		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com',
+		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com',
 		:from    =>	'"Booktrope Daily Crawler 1.0" <justin.jeffress@booktrope.com>',
 		:subject => 'Lightning Source Sales Numbers',
 		:html    => top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:net_quantity]}.reverse, "ISBN" => :isbn, "Title" => :title, "Country" => :country,  "Daily Sales" => :quantity_sold, "Returned" => :quantity_returned, "Net Sales" => :net_quantity )
 	}
 
 	mailgun.messages.send_email(email_parameters)
-
 end
 
 if !results.nil? && results.count > 0

@@ -145,7 +145,7 @@ def save_sales_data_to_parse(results)
 			nook_sales_data.save 
 			sleep(5.0)
 		end
-		puts "#{result[:isbn]}\t#{result[:bn_id]}\t#{result[:country]}\t#{result[:date]}\t#{result[:units_sold]}"
+		puts "#{result[:isbn]}\t#{result[:bn_id]}\t#{result[:country]}\t#{result[:date]}\t#{result[:units_sold]}" if $opts.dontSaveToParse
 	end	
 end
 
