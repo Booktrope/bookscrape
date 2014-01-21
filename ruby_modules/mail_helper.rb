@@ -1,5 +1,3 @@
-require 'pp'
-
 module Mail_helper
 	def Mail_helper.alternating_table_body(results, options = {})
 		options[:total] = [] if !options.has_key? :total
