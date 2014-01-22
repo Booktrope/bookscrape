@@ -142,14 +142,13 @@ def send_report_email(results)
 	top = "Apple Sales Numbers for #{results[0][:crawl_date]} PST <br /><br />\n"
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	email_parameters = {
-		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com',
-		:from    =>	'"Booktrope Daily Crawler 1.0" <justin.jeffress@booktrope.com>',
+		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
+		:from    =>	'"Booktrope Daily Crawler 1.1" <justin.jeffress@booktrope.com>',
 		:subject => 'Apple Sales Numbers',
-		:html    => top + Mail_helper.alternating_table_body(results, "Apple ID" => :apple_id, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold)
+		:html    => top + Mail_helper.alternating_table_body(results, "Apple ID" => :apple_id, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold, :total => [:units_sold])
 	}
 
 	mailgun.messages.send_email(email_parameters)
-
 end
 
 if !results.nil? && results.count > 0

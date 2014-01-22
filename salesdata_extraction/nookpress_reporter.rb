@@ -153,10 +153,10 @@ def send_report_email(results)
 	top = "Nookpress Sales Numbers for #{results[0][:date]} PST<br />\n<br />\n"
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	email_parameters = {
-		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com',
-		:from    =>	'"Booktrope Daily Crawler 1.0" <justin.jeffress@booktrope.com>',
+		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
+		:from    =>	'"Booktrope Daily Crawler 1.1" <justin.jeffress@booktrope.com>',
 		:subject => 'Nookpress Sales Numbers',
-		:html    => top + Mail_helper.alternating_table_body(results.sort_by{ |k| k[:units_sold] }.reverse, "Nook Id" => :bn_id,"isbn" => :isbn, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold)
+		:html    => top + Mail_helper.alternating_table_body(results.sort_by{ |k| k[:units_sold].to_i }.reverse, "Nook Id" => :bn_id,"isbn" => :isbn, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold, :total => [:units_sold])
 	}
 
 	mailgun.messages.send_email(email_parameters)
@@ -169,3 +169,4 @@ if !results.nil? && results.count > 0
 	save_sales_data_to_parse(results)
 	send_report_email(results)
 end
+
