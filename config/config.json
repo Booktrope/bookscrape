@@ -36,5 +36,9 @@
    "mailgun":{
      "api_key": "key-4qtjslqkjyb1-yj0l0zzxzmw6symk405",
      "domain": "sandbox93022.mailgun.org"
+  },
+   "twilio":{
+     "account_sid": "AC2980067718d40f28035f4bb858f9be6e",
+     "auth_token": "e27948e87e55c31c0f2dee2586cd49c5"
   }
 }

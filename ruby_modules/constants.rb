@@ -59,6 +59,12 @@ class CONST_MAILGUN
 	DOMAIN  = "domain"
 end
 
+class CONST_TWILIO
+	LABEL = "twilio"
+	ACCOUNT_SID = "account_sid"
+	AUTH_TOKEN = "auth_token"
+end
+
 module BTConstants
    @basePath = File.absolute_path(File.dirname(__FILE__))
 	@constants = nil
@@ -102,6 +108,9 @@ module BTConstants
 		
 		hash[:mailgun_api_key] = config_json[CONST_MAILGUN::LABEL][CONST_MAILGUN::API_KEY]
 		hash[:mailgun_domain]  = config_json[CONST_MAILGUN::LABEL][CONST_MAILGUN::DOMAIN]
+
+		hash[:twilio_account_sid]  = config_json[CONST_TWILIO::LABEL][CONST_TWILIO::ACCOUNT_SID]
+		hash[:twilio_auth_token]   = config_json[CONST_TWILIO::LABEL][CONST_TWILIO::AUTH_TOKEN]
 		
 		return hash
 	end     
