@@ -37,7 +37,7 @@ results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 	Selenium_harness.get(url)
 	
 	#clicking the login button
-	sign_button = Selenium_harness.find_element(:id, "dtp_signin")
+	sign_button = Selenium_harness.find_element(:css, "a.a-button-text")
 	sign_button.click
 	
 	#entering the username and password
