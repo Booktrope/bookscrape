@@ -1,6 +1,8 @@
 require 'selenium-webdriver'
+require 'twilio-ruby'
 require File.join(File.absolute_path(File.dirname(__FILE__)), "bt_logging")
 require File.join(File.absolute_path(File.dirname(__FILE__)), "headless_harness")
+
 
 module Selenium_harness
 	@driver = nil
@@ -11,6 +13,10 @@ module Selenium_harness
 	
 	def self.find_element(type, label)
 		return @driver.find_element(type, label)
+	end
+	
+	def self.find_elements(type, label)
+		return @driver.find_elements(type, label)
 	end
 	
 	def self.page_source
@@ -60,6 +66,17 @@ module Selenium_harness
 				lines.each do | line |
 					log.error "%s,%s,%s" % [ line[0], line[1], line[2]]
 				end
+
+				 account_sid = 'AC2980067718d40f28035f4bb858f9be6e'
+				 auth_token = 'e27948e87e55c31c0f2dee2586cd49c5'
+				 client = Twilio::REST::Client.new account_sid, auth_token
+				 client.account.messages.create(:from => '+18183348793',
+				 :to => '+13102924925',
+				 :body => "Script Failure #{className}")
+				 client = Twilio::REST::Client.new account_sid, auth_token
+				 client.account.messages.create(:from => '+18183348793',
+				 :to => '+18183085878',
+				 :body => "Script Failure #{className}")
 			end
 			self.teardown			
 			return results
