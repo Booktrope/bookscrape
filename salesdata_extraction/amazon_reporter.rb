@@ -90,6 +90,8 @@ results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 	#extracting the data from the US
 	results.concat(print_lambda.call(Array.new))
 
+	sleep(5.0)
+
 	#getting the dropdown for country stores and looping through each country
 	report_select = Selenium_harness.find_element(:id, "marketplaceSelect")
 	report_options = report_select.find_elements(:tag_name, "option")
