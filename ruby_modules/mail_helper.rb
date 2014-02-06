@@ -1,4 +1,49 @@
 module Mail_helper
+
+def Mail_helper.alternating_table_body_for_hash_of_parse_objects(change_hash, options = {})
+		options[:col_data] = [] if !options.has_key? :col_data
+		body = "<table width=\"99%\" border=\"0\" cellpadding=\"1\" cellspacing=\"0\" bgcolor=\"#EAEAEA\">\n"
+   	body = body + "   <tr>\n"
+		body = body + "      <td>\n"
+		body = body + "         <table width=\"100%\" border=\"0\" cellpadding=\"3\" cellspacing=\"0\" bgcolor=\"#FFFFFF\">\n"
+		body = body + "            <tr>\n"
+		body = body + "               <th align=\"left\">#</th>\n"
+		options[:col_data].each do | key |
+			key.each do | header, foo |
+				body = body + "               <th align=\"left\">#{header}</th>\n"
+			end
+		end
+		body = body + "            </tr>\n"
+		row_color = "#EAF2FA"
+		
+		i = 0
+		change_hash.each do | change_key, change_value |
+			body = body + "            <tr bgcolor=\"#{row_color}\">\n"
+			body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{i+1}</font></td>\n"
+			options[:col_data].each do | hash_key |
+				hash_key.each do | col_key, col_value |
+					result = ""
+					if(col_value[:object] != "")
+						result = change_value[col_value[:object]][col_value[:field]]
+					else
+						result = change_value[col_value[:field]]
+					end
+					body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result}</font></td>\n"
+				end
+			end
+			body = body + "            </tr>\n"
+			row_color = (i.even?) ? "#FFFFFF" : "#EAF2FA"
+			i = i + 1
+		end
+		
+		body = body + "         </table>\n"
+		body = body + "      </td>\n"
+		body = body + "   </tr>\n"
+		body = body + "</table>\n"		
+		
+	return body
+end
+
 	def Mail_helper.alternating_table_body(results, options = {})
 		options[:total] = [] if !options.has_key? :total
 		totals = populate_total_hash options[:total]
