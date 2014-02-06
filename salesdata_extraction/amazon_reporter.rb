@@ -37,7 +37,7 @@ results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 	Selenium_harness.get(url)
 	
 	#clicking the login button
-	sign_button = Selenium_harness.find_element(:id, "dtp_signin")
+	sign_button = Selenium_harness.find_element(:css, "a.a-button-text")
 	sign_button.click
 	
 	#entering the username and password
@@ -89,6 +89,8 @@ results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 	
 	#extracting the data from the US
 	results.concat(print_lambda.call(Array.new))
+
+	sleep(5.0)
 
 	#getting the dropdown for country stores and looping through each country
 	report_select = Selenium_harness.find_element(:id, "marketplaceSelect")
