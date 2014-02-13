@@ -16,7 +16,7 @@ $opts = Trollop::options do
 Changes prices of books on KDP Select.
 
    Usage:
-            ruby amazon_kdp_changer.rb [--debug [--parseQuery] [--emailOverride email_address]] [--suppressMail] [--headless]
+            ruby amazon_kdp_changer.rb [--debug [--parseQuery]] [--emailOverride email_address] [--suppressMail] [--headless]
    EOS
 
    opt :debug, "Turns on debugging mode", :short => 'd'
@@ -84,7 +84,7 @@ def change_prices(change_hash)
 				
 				grid_alerts = Selenium_harness.find_elements(:id, 'pricing-grid-US-error-alert')
 				
-				if changeling["price"] < 2.99 || (grid_alerts.length > 0 && grid_alerts[0].displayed?)
+				if changeling["price"] < 2.99 || changeling["price"] > 9.99 || (grid_alerts.length > 0 && grid_alerts[0].displayed?)
 					#make sure 35% Royalty
 					thirty_five_percent_royalty = Selenium_harness.find_element(:name, 'royaltyPlan')
 					if thirty_five_percent_royalty.methods.selected?
@@ -105,7 +105,7 @@ def change_prices(change_hash)
 				save_publish.click
 				
 				sleep(15.0)
-				wait.until { Selenium_harness.find_element(:id, "a-button-input").displayed? }
+				wait.until { Selenium_harness.find_element(:class, "a-button-input").displayed? }
 				changeling["status"] = 50
 				changeling.save
 				back_to_shelf = Selenium_harness.find_element(:class, "a-button-input")
@@ -170,7 +170,7 @@ def sendEmail(change_hash)
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	top = "Prices Changed for #{Date.today} PST<br />\n<br />\n"
 	email_parameters = {
-		:to      => ($debug_mode && !$opts.emailOverride.nil?) ? $opts.emailOverride : 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
+		:to      => (!$opts.emailOverride.nil?) ? $opts.emailOverride : 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
 		:from    =>	'"KDP Price Changer" <justin.jeffress@booktrope.com>',
 		:subject => ($debug_parse_query) ? 'Price Changes (DEBUG changes not actually made)' : 'Price Changes',
 		:html    => top + Mail_helper.alternating_table_body_for_hash_of_parse_objects(change_hash, :col_data => [ "asin" => {:object => "", :field => "asin"}, "Title" => {:object => "book", :field => "title"}, "Author" => {:object => "book", :field => "author"}, "Price" => {:object => "", :field => "price"}])
@@ -196,4 +196,4 @@ changelings.each do | changeling |
 end
 
 change_prices(change_hash) if !$debug_parse_query
-sendEmail(change_hash) if !$opts.suppressMail
+sendEmail(change_hash) if !$opts.suppressMail && change_hash.length > 0

@@ -61,7 +61,7 @@ results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 	month_to_date_sales_link = Selenium_harness.find_element(:id, "mtdLink")
 	month_to_date_sales_link.click
 	
-	wait = Selenium::WebDriver::Wait.new(:timeout => 15)
+	wait = Selenium::WebDriver::Wait.new(:timeout => 60)
 	wait.until { Selenium_harness.find_element(:css, "table#promotionTransactionsReports tbody tr").displayed? }
 	
 	#The country that appears first is US so we set it to US.
