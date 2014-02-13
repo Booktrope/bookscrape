@@ -5,6 +5,7 @@ require "nokogiri"
 require "trollop"
 require 'json'
 require 'time'
+require 'pp'
 
 
 basePath = File.absolute_path(File.dirname(__FILE__))
@@ -29,6 +30,7 @@ Pulls data from Amazon
 end
 
 $log = Bt_logging.create_logging('Book_analysis::Amazon')
+$changeQueue = Hash.new
 
 def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 	res = Amazon::Ecs.item_lookup(asinList,:response_group => 'ItemAttributes,SalesRank,Images')
@@ -57,11 +59,12 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 		kindle_price = "0"
 		stars = "0"
 		customer_reviews = "0"
+		price_get = false
 		
 		done = false
 		count = 0
 		while(!done)
-			sleep(1.0)
+			sleep(2.0)
 			response = Download_simple.downloadData(detailPageUrl)
 			done = true if !response.nil? && response.code == "200"
 			if count > 4 then done = true end
@@ -140,7 +143,8 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 				$log.error pp e
 			end
 			#TODO: add a log of what we changed by anding by, 1,2,4,8,16 to see if we get a value > 0, if so then the corresponding field changed. 
-
+			
+			price_get = true if kindle_price != "0"
 			
 			crawl_object = Parse::Object.new("AmazonStats")
 			crawl_object['asin'] = asin
@@ -149,6 +153,7 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 			crawl_object['num_of_reviews'] = customer_reviews.to_f
 			crawl_object['average_stars'] = stars.to_f
 			crawl_object['crawl_date'] = crawl_date
+			crawl_object['got_price'] = price_get
 
 			crawl_object['book'] = book_object
 			begin
@@ -156,9 +161,29 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 			rescue Exception => e
 				$log.error pp crawl_object
 				$log.error pp e
-			end
+			end			
 		else
 		   puts "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % [asin, kindle_price, title, author, manufacturer, salesRank, customer_reviews, stars, crawl_date.to_h()["iso"], detailPageUrl, largeImageUrl]
+		end
+		
+		if $changeQueue.has_key? asin
+			
+			if kindle_price.to_f == $changeQueue[asin]["price"]
+				$changeQueue[asin]["status"] = 99
+				$changeQueue[asin].save
+				
+				require 'twilio-ruby'
+				account_sid = 'AC2980067718d40f28035f4bb858f9be6e'
+				auth_token = 'e27948e87e55c31c0f2dee2586cd49c5'
+				client = Twilio::REST::Client.new account_sid, auth_token
+				client.account.messages.create(:from => '+18183348793',
+				:to => '+13102924925',
+				:body => "Price Verified #{asin} #{kindle_price.to_f}")
+				client = Twilio::REST::Client.new account_sid, auth_token
+				client.account.messages.create(:from => '+18183348793',
+				:to => '+18183085878',
+				:body => "Price Verified #{asin} #{kindle_price.to_f}")
+			end
 		end
 		
 		if salesRank == "0" || kindle_price == "0" || customer_reviews == "0" || stars == "0"
@@ -203,6 +228,20 @@ Amazon::Ecs.options = {
 
 Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
 	        :api_key        => BT_CONSTANTS[:parse_api_key]
+
+#Parse.init :application_id => "RIaidI3C8TOI7h6e3HwEItxYGs9RLXxhO0xdkdM6",
+#	        :api_key        => "EQVJvWgCKVp4zCc695szDDwyU5lWcO3ssEJzspxd"
+
+
+changelings = Parse::Query.new("PriceChangeQueue").tap do |q|
+	q.limit = 1000
+	q.eq("status", 50)
+end.get
+
+changelings.each do | changeling |
+	$changeQueue[changeling["asin"]] = changeling
+end
+
 
 book_count = Parse::Query.new("Book").tap do |q|
    q.limit = 0
