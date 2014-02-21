@@ -3,6 +3,7 @@ require 'trollop'
 require 'parse-ruby-client'
 require 'mailgun'
 require 'time'
+require 'pp'
 
 basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
@@ -41,7 +42,7 @@ $BT_CONSTANTS = BTConstants.get_constants
 Parse.init :application_id => "RIaidI3C8TOI7h6e3HwEItxYGs9RLXxhO0xdkdM6",
 	        :api_key        => "EQVJvWgCKVp4zCc695szDDwyU5lWcO3ssEJzspxd"
 
-def change_prices_amazon(change_hash)
+def amazon_change_prices(change_hash)
 	class_name = "Price_Changer::Amazon_KDP_Changer"
 	results = Selenium_harness.run($should_run_headless, class_name, lambda { | log |	
 		url = $BT_CONSTANTS[:amazon_kdp_url]
@@ -168,7 +169,7 @@ def lookup_book_edit_page_url(change_hash, current_asin)
 	return result
 end
 
-def change_prices_nook(change_hash)
+def nook_change_prices(change_hash)
 
 	class_name = "Price_Changer::Nookpress_Changer"
 	results = Selenium_harness.run($should_run_headless, class_name, lambda { | log |
@@ -195,8 +196,6 @@ def change_prices_nook(change_hash)
 		login_button = Selenium_harness.find_element(:id, "login_button")
 		login_button.click
 		
-				
-
 	})
 end
 
@@ -231,9 +230,81 @@ def lookup_book_edit_page_url(change_hash)
 		
 		sleep(5.0)
 	end
+end
+
+def apple_change_prices(change_hash)
+	class_name = "Price_Changer::iTunesConnect_Changer"
+	results = Selenium_harness.run($should_run_headless, class_name, lambda { | log |
+		url = $BT_CONSTANTS[:itunes_connect_url]
 	
+		
+		Selenium_harness.get(url)	
 	
+		username_input = Selenium_harness.find_element(:id, "accountname")
+		username_input.send_keys $BT_CONSTANTS[:itunes_connect_username]
 	
+		password_input = Selenium_harness.find_element(:id, "accountpassword")
+		password_input.send_keys $BT_CONSTANTS[:itunes_connect_password]
+	
+		login_button = Selenium_harness.find_element(:xpath, "(//input[@name='1.Continue'])[2]")
+		login_button.click
+		
+		manage_books_link = Selenium_harness.find_element(:link, "Manage Your Books")
+		manage_books_link.click
+		
+		change_hash.each do | key, changeling |
+			apple_id_input = Selenium_harness.find_element(:xpath, "//td[@id='search-param-value-appleId']/input")
+			puts changeling["book"]["appleId"]
+			apple_id_input.send_keys changeling["book"]["appleId"].to_s
+			
+			sleep(5.0)
+			search_button = Selenium_harness.find_element(:xpath, "//div[@id='titleSearch']/table/tbody/tr[11]/td[2]/input")
+			search_button.click
+			
+			book_link = Selenium_harness.find_element(:xpath, "//div[@id='book-list']/div[2]/table/tbody/tr[2]/td/div/p/a")
+			book_link.click
+			sleep(5.0)
+			
+			rights_and_pricing_link = Selenium_harness.find_element(:link, "Rights and Pricing")
+			rights_and_pricing_link.click
+			
+			edit_territories_btn = Selenium_harness.find_element(:xpath, "//span[@id='lcBoxWrapperHeaderUpdateContainer']/span/a/img")
+			edit_territories_btn.click
+			
+			currency_dropdown = Selenium_harness.find_element(:xpath, "//td[@id='baseCurr']/select")
+			options = currency_dropdown.find_elements(:tag_name, "option")
+			options.each do | option |
+				if(option.attribute("text") == "USD - US Dollar")
+					option.click
+					break
+				end
+			end
+			sleep(10.0)
+			price_input = Selenium_harness.find_element(:xpath, "//span[@id='InputContainer']/table/tbody/tr[7]/td[2]/span/input")
+			price_input.send_keys changeling["price"]
+			
+			start_date = Selenium_harness.find_element(:id, "startdate")
+			start_date.click
+			
+			today_button = Selenium_harness.find_element(:css, "button.ui-datepicker-nonebtn")
+			today_button.click
+			
+			end_date = Selenium_harness.find_element(:id, "enddate")
+			end_date.click
+			
+			none_button = Selenium_harness.find_element(:css, "button.ui-datepicker-nonebtn")
+			none_button.click			
+			
+			select_all = Selenium_harness.find_element(:link, "Select All")
+			select_all.click
+			
+			continue_button = Selenium_harness.find_element(:css , "span.wrapper-right-button input.continueActionButton")
+			continue_button.click
+			
+			sleep(5.0)
+			
+		end
+	})
 end
 
 def sendEmail(change_hash)
@@ -256,7 +327,7 @@ changelings = Parse::Query.new("PriceChangeQueue").tap do |q|
 	q.less_eq("status", 25)
 	q.order_by ="changeDate"
 	q.in_query("salesChannel", Parse::Query.new("SalesChannel").tap do | inner_query |
-		inner_query.eq("name", "Nook")
+		inner_query.eq("name", "Apple")
 	end)
 	q.include = "book"
 end.get
@@ -264,10 +335,11 @@ end.get
 change_hash = Hash.new
 
 changelings.each do | changeling |
-	puts "#{changeling["asin"]}\t#{changeling["status"]}\t#{changeling["book"]["title"]}\t#{changeling["book"]["author"]}\t#{changeling["price"]}"
+	puts "#{changeling["book"]["appleId"]}\t#{changeling["status"]}\t#{changeling["book"]["title"]}\t#{changeling["book"]["author"]}\t#{changeling["price"]}"
 	change_hash[changeling["asin"]] = changeling
 end
 
-#change_prices_nook(change_hash) if !$debug_parse_query
-#change_prices_amazon(change_hash) if !$debug_parse_query
+#nook_change_prices(change_hash) if !$debug_parse_query
+#amazon_change_prices(change_hash) if !$debug_parse_query
+apple_change_prices(change_hash) if !$debug_parse_query
 #sendEmail(change_hash) if !$opts.suppressMail && change_hash.length > 0
