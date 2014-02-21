@@ -93,6 +93,7 @@ module BTConstants
 		hash[:itunes_connect_url]      = config_json[CONST_ITUNES_CONNECT::LABEL][CONST_ITUNES_CONNECT::URL]
 		hash[:itunes_connect_username] = config_json[CONST_ITUNES_CONNECT::LABEL][CONST_ITUNES_CONNECT::USERNAME]
 		hash[:itunes_connect_password] = config_json[CONST_ITUNES_CONNECT::LABEL][CONST_ITUNES_CONNECT::PASSWORD]
+		hash[:itunes_lookup_url] = "http://itunes.apple.com/lookup"
 		
 		hash[:nookpress_url]      = config_json[CONST_NOOKPRESS::LABEL][CONST_NOOKPRESS::URL]
 		hash[:nookpress_username] = config_json[CONST_NOOKPRESS::LABEL][CONST_NOOKPRESS::USERNAME]
@@ -113,5 +114,5 @@ module BTConstants
 		hash[:twilio_auth_token]   = config_json[CONST_TWILIO::LABEL][CONST_TWILIO::AUTH_TOKEN]
 		
 		return hash
-	end     
+	end
 end
