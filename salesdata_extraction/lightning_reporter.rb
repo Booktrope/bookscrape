@@ -62,22 +62,22 @@ results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 	
 	report_link.click
 	
-	reports = [	{:operating_unit => "_ctl0_MainContent_optOrgID_0", :currency => "_ctl0_MainContent_optCurrency_4", :country => "US"},
-					{:operating_unit => "_ctl0_MainContent_optOrgID_1", :currency => "_ctl0_MainContent_optCurrency_1", :country => "GB"},
-					{:operating_unit => "_ctl0_MainContent_optOrgID_2", :currency => "_ctl0_MainContent_optCurrency_0", :country => "AU"}]
+	reports = [	{:operating_unit => "_ctl0__ctl0_BodyContents_MainContent_optOrgID_0", :currency => "_ctl0__ctl0_BodyContents_MainContent_optCurrency_4", :country => "US"},
+					{:operating_unit => "_ctl0__ctl0_BodyContents_MainContent_optOrgID_1", :currency => "_ctl0__ctl0_BodyContents_MainContent_optCurrency_1", :country => "GB"},
+					{:operating_unit => "_ctl0__ctl0_BodyContents_MainContent_optOrgID_2", :currency => "_ctl0__ctl0_BodyContents_MainContent_optCurrency_0", :country => "AU"}]
 	
 	reports.each do | options |
-		start_date_field = Selenium_harness.find_element(:id, "_ctl0_MainContent_PeriodEntry_txtDate1")
-		end_date_field   = Selenium_harness.find_element(:id, "_ctl0_MainContent_PeriodEntry_txtDate2")
+		start_date_field = Selenium_harness.find_element(:id, "_ctl0__ctl0_BodyContents_MainContent_PeriodEntry_txtDate1")
+		end_date_field   = Selenium_harness.find_element(:id, "_ctl0__ctl0_BodyContents_MainContent_PeriodEntry_txtDate2")
 	
 		start_date_field.send_keys (Date.today-1).strftime("%m/%d/%Y")
 		end_date_field.send_keys (Date.today-1).strftime("%m/%d/%Y")
 
 		Selenium_harness.find_element(:id, options[:operating_unit]).click
 		Selenium_harness.find_element(:id, options[:currency]).click
-		Selenium_harness.find_element(:id, "_ctl0_MainContent_optCompensationType_0").click
+		Selenium_harness.find_element(:id, "_ctl0__ctl0_BodyContents_MainContent_optCompensationType_0").click
 	
-		submit_button = Selenium_harness.find_element(:id, "_ctl0_MainContent_btnSubmit")
+		submit_button = Selenium_harness.find_element(:id, "_ctl0__ctl0_BodyContents_MainContent_btnSubmit")
 		submit_button.click
 	
 		the_page_data = Nokogiri.parse(Selenium_harness.page_source)	
@@ -99,7 +99,7 @@ results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 			results.push row_hash
 		end
 	
-		back_to_report = Selenium_harness.find_element(:id, "_ctl0_MainContent_BackToSearchButton")
+		back_to_report = Selenium_harness.find_element(:id, "_ctl0__ctl0_BodyContents_MainContent_BackToSearchButton")
 		back_to_report.click if options[:operating_unit] != reports[-1][:operating_unit] # don't click the 'New Report' if the current report is the last one.
 	end	
 	
