@@ -1,5 +1,6 @@
 require 'trollop'
 require 'json'
+require 'time'
 require 'parse-ruby-client'
 
 $basePath   = File.absolute_path(File.dirname(__FILE__))
@@ -11,32 +12,56 @@ require File.join($basePath, "..", "ruby_modules", "download_simple")
 require File.join($basePath, "..", "ruby_modules", "constants")
 
 
+$opts = Trollop::options do
+
+   banner <<-EOS
+Extracts various meta data from iBooks using the iTunes search api.
+
+   Usage:
+            ruby apple.rb [--dontSaveToParse]
+   EOS
+
+   opt :dontSaveToParse, "Turns off parse", :short => 'x'
+   
+   version "1.0.0 2014 Justin Jeffress"
+
+end
+
+
 log = Bt_logging.create_logging('Book_analysis::Apple')
 
 BT_CONSTANTS = BTConstants.get_constants
 
-#Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
-#	        :api_key        => BT_CONSTANTS[:parse_api_key]
-
-Parse.init :application_id => "4JLzurLzmUziWmqqpUXfoPeHUepJl1dcy0hACLRq",
-	        :api_key        => "pPWK59OijhjOYpXQNApb1dO8oqGuriJLoKtqmAkO"
+Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
+	        :api_key        => BT_CONSTANTS[:parse_api_key]
 
 
 books = Parse::Query.new("Book").tap do |q|
-   q.limit  = 200
-   q.exists("itunes_epub_isbn")
+	#TODO:: create a helper function that loads the books in one shot.
+   q.limit  = 1000
 end.get
 
 
 
-books.each do |book|
-   response = Download_simple.downloadData("#{BT_CONSTANTS[:itunes_lookup_url]}?isbn=#{book['itunes_epub_isbn']}")
+books.each do | book |
+
+	lookup = "id=#{book["appleId"]}"
+	if book["appleId"].nil? || book["appleId"] == 0
+		if book["epubIsbnItunes"].nil? || book["epubIsbnItunes"] == 0
+			log.warn "Skipped: insufficient control numbers: #{book["title"]}"
+			next 
+		else
+			lookup = "isbn=#{book["epubIsbnItunes"]}"
+		end
+	end
+	
+   response = Download_simple.downloadData("#{BT_CONSTANTS[:itunes_lookup_url]}?#{lookup}")
 
    if response.code == "200"
       json = JSON.parse(response.body)
 
       if json["resultCount"] == 0
-         log.warn "No Results: #{book['itunes_epub_isbn']},#{book['asin']},\"#{book['title']}\""
+         log.warn "No Results: #{lookup},#{book['appleId']},#{book['asin']},\"#{book['title']}\""
          next
       end
 
@@ -55,35 +80,43 @@ books.each do |book|
          userRatingCount =  result["userRatingCount"]
          imageUrl100 = result["artworkUrl100"]
       end
-   
-      #puts "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n" % [  id, price, title, author, userRatingCount, averageUserRating, detailUrl, imageUrl100]
       
-      puts "%s,\"%s\",%s,%s,%s,%s,%s,%s,%s" % [book['itunes_epub_isbn'], title, author, price, id, userRatingCount, averageUserRating, detailUrl, imageUrl100]
+      puts "%s,\"%s\",%s,%s,%s,%s,%s,%s,%s" % [book['appleId'], title, author, price, id, userRatingCount, averageUserRating, detailUrl, imageUrl100] if $opts.dontSaveToParse
       
-	   time = Time.new
-      crawl_date = time.strftime("%Y/%m/%d")
-	   crawl_time = time.strftime("%H:%M:%S")
+      crawl_date = Parse::Date.new(Time.now.utc.strftime("%Y/%m/%d %H:%M:%S"))
       
+      book_is_dirty = false
+      #updating our book with its appleId, if we found the book via epubIsbnItunes
       if book["appleId"].nil? || book["appleId"] == 0
-      	puts "it's nil"
       	book["appleId"] = apple_id.to_i
+      	book_is_dirty = true
+      end
+      
+      if book["detailUrlApple"]  != detailUrl
+      	book["detailUrlApple"] = detailUrl
+      	book_is_dirty = true
+      end
+      
+      if book["largeImageApple"] != imageUrl100
+      	book["largeImageApple"] = imageUrl100
+      	book_is_dirty = true
+      end
+      
+      if book_is_dirty && !$opts.dontSaveToParse
       	book.save
+      	sleep(1.0)
       end
       
       appleStats = Parse::Object.new("AppleStats")
       appleStats['book'] = book
-      appleStats['trackId'] = id.to_i
-      appleStats['author'] = author
-      appleStats['title'] = title
+      appleStats['appleId'] = apple_id.to_i
       appleStats['price'] = price
-      appleStats['large_image'] = imageUrl100
-      appleStats['detail_url'] = detailUrl
-      appleStats['average_stars'] = averageUserRating.to_f
-      appleStats['num_of_reviews'] = userRatingCount.to_i
-      appleStats['crawl_date'] = crawl_date
-      appleStats['crawl_time'] = crawl_time
+      appleStats['averageStars'] = averageUserRating.to_f
+      appleStats['numOfReviews'] = userRatingCount.to_i
+      appleStats['crawlDate'] = crawl_date
       
-      #appleStats.save
+      appleStats.save if !$opts.dontSaveToParse
+      sleep(1.0)
    end
    sleep(1.0);
 end
