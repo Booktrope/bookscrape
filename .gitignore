@@ -5,6 +5,7 @@
 !book_analysis/
 !config/
 !ruby_modules/
+!reports/
 !price_changer/
 !salesdata_extraction/
 !tools/
