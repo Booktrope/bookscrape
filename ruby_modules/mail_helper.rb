@@ -62,7 +62,6 @@ end
 		i = 0
 		row_map = Array.new(options.count-1) #-1 since :totals does not appear in a separate column, they are mapped to a row.
 		results.each do | result |
-		
 			body = body + "            <tr bgcolor=\"#{row_color}\">\n"
 			body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{i+1}</font></td>\n"
 			index = 0
@@ -80,14 +79,15 @@ end
 			i = i + 1
 		end
 
-		body = body + "            <tr bgcolor=\"#{row_color}\">\n"
-		body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\"><strong>Total:</strong></font></td>\n"
-		row_map.each do | row |
-			total = (!row.nil?) ? row : "&nbsp;"
-			body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{total}</font></td>\n"			
+		if totals.length > 0
+			body = body + "            <tr bgcolor=\"#{row_color}\">\n"
+			body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\"><strong>Total:</strong></font></td>\n"
+			row_map.each do | row |
+				total = (!row.nil?) ? row : "&nbsp;"
+				body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{total}</font></td>\n"			
+			end
+			body = body + "            </tr>\n"
 		end
-
-		body = body + "            </tr>\n"
 		
 		body = body + "         </table>\n"
 		body = body + "      </td>\n"
