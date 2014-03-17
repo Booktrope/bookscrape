@@ -65,8 +65,8 @@ def crawl_nook(book_list)
 	class_name = "Book_analysis::Nook"
 	should_run_headless = ($opts.headless) ?  true : false
 	results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
-index = 0
-begin
+	index = 0
+	begin
 
 		Selenium_harness.get($BT_CONSTANTS[:nook_url])
 		book_list.each_with_index do | book, index |
@@ -153,9 +153,6 @@ begin
 	
 			sleep 5.0
 			
-			if count > 5 
-				raise "break"
-			end
 		end
 	
 		if $batch.requests.length > 0
@@ -164,18 +161,18 @@ begin
 	
 		log.info "skipped: #{skipped} crawled: #{count}"
 		
-rescue Exception => e
-	remaining_books = book_list.slice(index, book_list.size - index)
-	puts remaining_books.to_yaml
+	rescue Exception => e
+		remaining_books = book_list.slice(index, book_list.size - index)
+		puts remaining_books.to_yaml
 	
-	payload = Hash.new
-	payload["book_list"] = remaining_books
-	payload["batch"] = $batch
+		payload = Hash.new
+		payload["book_list"] = remaining_books
+		payload["batch"] = $batch
 	
-	File.open('/Users/Justin/Desktop/test.yml', 'w') { | f | f.write payload }
+		File.open('/Users/Justin/Desktop/test.yml', 'w') { | f | f.write payload }
 	
-	raise e
-end
+		raise e
+	end
 	})
 end
 
