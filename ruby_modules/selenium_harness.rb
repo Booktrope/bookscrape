@@ -26,6 +26,10 @@ module Selenium_harness
 	def self.get(url)
 		@driver.get(url)
 	end
+	
+	def self.current_url
+		return @driver.current_url
+	end
 		
 	def self.setup(headless)
 		#puts "SELENIUM_HARNESS::SETUP"
