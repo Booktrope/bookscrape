@@ -32,6 +32,10 @@ class CONST_ITUNES_CONNECT
 	PASSWORD = "password"
 end
 
+class CONST
+	NOOKURL = "nook_url"
+end
+
 class CONST_NOOKPRESS
 	LABEL    = "nookpress"
 	URL      = "url"
@@ -94,6 +98,8 @@ module BTConstants
 		hash[:itunes_connect_username] = config_json[CONST_ITUNES_CONNECT::LABEL][CONST_ITUNES_CONNECT::USERNAME]
 		hash[:itunes_connect_password] = config_json[CONST_ITUNES_CONNECT::LABEL][CONST_ITUNES_CONNECT::PASSWORD]
 		hash[:itunes_lookup_url] = "http://itunes.apple.com/lookup"
+		
+		hash[:nook_url]           = config_json[CONST::NOOKURL]
 		
 		hash[:nookpress_url]      = config_json[CONST_NOOKPRESS::LABEL][CONST_NOOKPRESS::URL]
 		hash[:nookpress_username] = config_json[CONST_NOOKPRESS::LABEL][CONST_NOOKPRESS::USERNAME]
