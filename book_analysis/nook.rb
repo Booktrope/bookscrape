@@ -16,6 +16,7 @@ Extracts book sales data from Nook
 
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
    opt :headless, "Runs headless", :short => 'h'
+   opt :yamlFile, "Runs the script based on a yaml file.", :short => 'y'
    version "1.0.0 2014 Justin Jeffress"
 
 end
@@ -58,6 +59,17 @@ def update_book(book, product_image_url)
 	return should_update_book
 end
 
+def hydrate_from_yaml(file)
+	YAML::ENGINE.yamler = 'syck'
+	hash = Hash.new
+	hash = YAML.load(File.read(file))
+	return hash
+	#File.open(file, "r").each do | object |
+	#	test_hash = YAML::load(object)
+	#	puts test_hash
+	#end
+end
+
 def crawl_nook(book_list)
 
 	skipped = 0
@@ -65,11 +77,14 @@ def crawl_nook(book_list)
 	class_name = "Book_analysis::Nook"
 	should_run_headless = ($opts.headless) ?  true : false
 	results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
-	index = 0
+	step = 0
+	stats_saved = false
+	book_saved = false	
 	begin
 
 		Selenium_harness.get($BT_CONSTANTS[:nook_url])
 		book_list.each_with_index do | book, index |
+			step = index
 			if book["bnid"] == 0
 				skipped = skipped + 1
 				next
@@ -150,8 +165,8 @@ def crawl_nook(book_list)
 			book_saved = update_book(book, product_image_url)
 			
 			count = count + 1
-	
-			sleep 5.0
+				
+			sleep 2.5
 			
 		end
 	
@@ -162,14 +177,17 @@ def crawl_nook(book_list)
 		log.info "skipped: #{skipped} crawled: #{count}"
 		
 	rescue Exception => e
-		remaining_books = book_list.slice(index, book_list.size - index)
-		puts remaining_books.to_yaml
 	
+		if stats_saved || book_saved
+			step = step + 1
+		end	
+		remaining_books = book_list.slice(step, book_list.size - step)
+				
 		payload = Hash.new
 		payload["book_list"] = remaining_books
 		payload["batch"] = $batch
 	
-		File.open('/Users/Justin/Desktop/test.yml', 'w') { | f | f.write payload }
+		File.open('/Users/Justin/Desktop/test.yml', 'w')  { | f | f.write YAML::dump(payload).gsub(/(title:.*)\n    /,'\1\s') }
 	
 		raise e
 	end
@@ -178,13 +196,14 @@ end
 
 $batch = Parse::Batch.new
 $batch.max_requests = 50
+
 	        
-book_list = Parse::Query.new("Book").tap do | q |
-	q.exists("bnid")
-	q.limit = 1000
-end.get
-begin
-	crawl_nook book_list
-rescue Exception => e
-	puts e.message
-end
+#book_list = Parse::Query.new("Book").tap do | q |
+#	q.exists("bnid")
+#	q.limit = 1000
+#end.get
+
+hash = hydrate_from_yaml("/Users/Justin/Desktop/20140317_16_48.yml")
+pp hash["book_list"]
+
+#crawl_nook book_list
