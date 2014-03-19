@@ -118,10 +118,12 @@ def crawl_nook(book_list)
 			end
 		
 			#looking up the price.
+			sleep 0.5
 			wait = Selenium::WebDriver::Wait.new(:timeout => 60)
 			wait.until { Selenium_harness.find_element(:css, ".price,.hilight").displayed? }
 	
 			price = Selenium_harness.find_element(:css, ".price,.hilight")
+			
 			book_price = price.text.gsub(/\$/, "")
 		
 			#getting the sales rank out of the product details section
