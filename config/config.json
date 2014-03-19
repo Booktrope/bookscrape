@@ -23,6 +23,7 @@
     "username": "production@booktrope.com",
     "password": "L1bertar4***"
   },
+  "nook_url": "http://www.barnesandnoble.com/",
   "createspace": {
     "url": "https://www.createspace.com/Login.do?redirectURL=pub/member.dashboard.do",
     "username": "production@booktrope.com",
