@@ -40,5 +40,30 @@ module Parse
 				"path" => Parse::Protocol.class_uri(object.class_name, object.id)
 			})
 		end
+		
+		def marshal_dump
+			[requests, client]
+		end
+		
+		def marshal_load(array)
+			@requests, client = array
+		end
+		
+	end
+	
+	class Date
+		def marshal_load(array)
+			
+		end
+	end
+	
+	class Client
+		def marshal_dump
+			[host, application_id, api_key, master_key, session_token, max_retries]
+		end
+		
+		def marshal_load(array)
+			host, application_id, api_key, master_key, session_token, max_retries = array
+		end
 	end
 end

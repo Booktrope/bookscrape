@@ -1,5 +1,5 @@
 require 'trollop'
-require 'yaml'
+require 'time'
 require 'pp'
 
 $basePath = File.absolute_path(File.dirname(__FILE__))
@@ -16,7 +16,7 @@ Extracts book sales data from Nook
 
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
    opt :headless, "Runs headless", :short => 'h'
-   opt :yamlFile, "Runs the script based on a yaml file.", :short => 'y'
+   opt :marshalFile, "Runs the script based on a marshal file.", :type => :string, :short => 'y'
    version "1.0.0 2014 Justin Jeffress"
 
 end
@@ -59,15 +59,10 @@ def update_book(book, product_image_url)
 	return should_update_book
 end
 
-def hydrate_from_yaml(file)
-	YAML::ENGINE.yamler = 'syck'
+def hydrate_from_marshal(file)
 	hash = Hash.new
-	hash = YAML.load(File.read(file))
+	hash = Marshal.load(File.read(file))
 	return hash
-	#File.open(file, "r").each do | object |
-	#	test_hash = YAML::load(object)
-	#	puts test_hash
-	#end
 end
 
 def crawl_nook(book_list)
@@ -166,8 +161,7 @@ def crawl_nook(book_list)
 			
 			count = count + 1
 				
-			sleep 2.5
-			
+			sleep 2.5			
 		end
 	
 		if $batch.requests.length > 0
@@ -177,18 +171,23 @@ def crawl_nook(book_list)
 		log.info "skipped: #{skipped} crawled: #{count}"
 		
 	rescue Exception => e
-	
 		if stats_saved || book_saved
 			step = step + 1
-		end	
+		end
+		
 		remaining_books = book_list.slice(step, book_list.size - step)
 				
 		payload = Hash.new
 		payload["book_list"] = remaining_books
 		payload["batch"] = $batch
-	
-		File.open('/Users/Justin/Desktop/test.yml', 'w')  { | f | f.write YAML::dump(payload).gsub(/(title:.*)\n    /,'\1\s') }
-	
+		
+		if $batch.requests.length > 0
+			payload["result"] = $batch.run!
+		end
+		
+		marshal_file = File.join($basePath, "#{Time.now.strftime("%Y-%m-%dT%H-%M-%SZ")}.btm")
+
+		File.open(marshal_file, 'w')  { | f | f.write Marshal.dump(payload) }
 		raise e
 	end
 	})
@@ -197,13 +196,16 @@ end
 $batch = Parse::Batch.new
 $batch.max_requests = 50
 
-	        
-#book_list = Parse::Query.new("Book").tap do | q |
-#	q.exists("bnid")
-#	q.limit = 1000
-#end.get
+book_list = Array.new
+if $opts.marshalFile.nil?
+	book_list = Parse::Query.new("Book").tap do | q |
+		q.exists("bnid")
+		q.limit = 1000
+	end.get
+else
+	puts $opts.marshalFile
+	book_hash = hydrate_from_marshal($opts.marshalFile)
+	book_list = book_hash["book_list"]
+end
 
-hash = hydrate_from_yaml("/Users/Justin/Desktop/20140317_16_48.yml")
-pp hash["book_list"]
-
-#crawl_nook book_list
+crawl_nook book_list
