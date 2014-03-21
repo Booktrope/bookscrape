@@ -1,7 +1,15 @@
 require 'logging'
 
 module Bt_logging
+
+	@loggers = Hash.new
+
 	def self.create_logging(className)	
+	
+		if @loggers.has_key? className
+			return @loggers[className]
+		end
+	
 		Logging.color_scheme( 'bright',
 			:levels => {
 				:info  => :green,
@@ -24,6 +32,9 @@ module Bt_logging
 		log = Logging.logger[(!className.nil? && !className.empty?) ? className : "bt_logging"]
 		log.add_appenders Logging.appenders.stderr
 		log.level = :debug
+		
+		@loggers[className] = log
+		
 		return log
 	end
 end
