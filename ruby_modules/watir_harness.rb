@@ -81,8 +81,12 @@ module Watir_harness
 				 client.account.messages.create(:from => '+18183348793',
 				 :to => '+18183085878',
 				 :body => "Script Failure #{className}")
+				 
+				 raise e
+			ensure
+				self.teardown
 			end
-			self.teardown			
+			
 			return results
 		}
 
