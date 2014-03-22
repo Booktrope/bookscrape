@@ -17,7 +17,7 @@ Extracts book sales data from Nook
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
    opt :headless, "Runs headless", :short => 'h'
    opt :marshalFile, "Runs the script based on a marshal file.", :type => :string, :short => 'y'
-   opt :groupCount, "The number to group the books into.", :type => :integer, :default => 0, :short => 'g'
+   opt :groupCount, "The number to group the books into.", :type => :integer, :default => 50, :short => 'g'
    version "1.0.0 2014 Justin Jeffress"
 
 end
@@ -146,7 +146,7 @@ def crawl_nook(book_list)
 
 				stats_saved = save_stats(book, bnid, book_price, sales_rank, average_rating, review_count) if !$opts.dontSaveToParse
 				book_saved = update_book(book, product_image_url)
-			
+
 				count = count + 1
 				
 				sleep 2.5			
@@ -165,13 +165,17 @@ def crawl_nook(book_list)
 			end
 		
 			remaining_books = book_list.slice(step, book_list.size - step)
-				
+			$book_group[$current_index] = remaining_books
+			
+			remaining_groups = $book_group.slice($current_index, $book_group.size - $current_index)
+			
 			payload = Hash.new
-			payload["book_list"] = remaining_books
+			payload["book_groups"] = remaining_groups
 			payload["batch"] = $batch
 		
 			if $batch.requests.length > 0
 				payload["result"] = $batch.run!
+				$batch.requests.clear
 			end
 		
 			puts $basePath
@@ -184,7 +188,6 @@ def crawl_nook(book_list)
 end
 
 def run(should_run_headless, class_name, lambda)
-
 	browser = Watir::Browser.new :firefox
 	log = Bt_logging.create_logging(class_name)
 	lambda.call(log)
@@ -203,7 +206,7 @@ if $opts.marshalFile.nil?
 else
 	puts $opts.marshalFile
 	book_hash = hydrate_from_marshal($opts.marshalFile)
-	book_list = book_hash["book_list"]
+	book_list = book_hash["book_groups"]
 end
 
 $current_index = 0
