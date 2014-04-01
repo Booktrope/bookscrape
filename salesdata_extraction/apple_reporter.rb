@@ -1,94 +1,66 @@
-require 'nokogiri'
 require 'trollop'
-require 'parse-ruby-client'
 require 'time'
 require 'mailgun'
+require 'csv'
+require 'fileutils'
 
-basePath = File.absolute_path(File.dirname(__FILE__))
-# linking to custom modules
-require File.join(basePath, "..", "ruby_modules", "constants")
-require File.join(basePath, "..", "ruby_modules", "selenium_harness")
-require File.join(basePath, "..", "ruby_modules", "mail_helper")
+$basePath = File.absolute_path(File.dirname(__FILE__))
+require File.join($basePath, '..', 'booktrope-modules')
 
 $opts = Trollop::options do
 
    banner <<-EOS
-Extracts book sales data from iTunes Connect
-
+Extracts book sales data from iTunes Connect by downloading the report file, uncompressing it,
+and parsing the TSV file using ruby CSV. The data is then saved into parse.com
    Usage:
-            ruby apple_reporter.rb [--dontSaveToParse] [--headless]
+            ruby apple_reporter.rb [--dontSaveToParse] [--headless] -- dropFolder file_path --archiveFolder file_path
    EOS
 
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
    opt :headless, "Runs headless", :short => 'h'
-   version "1.0.0 2014 Justin Jeffress"
+   opt :downloadFolder, "The archive folder to drop the unzipped file into for posterity", :type => :string, :short => 'd'
+   opt :archiveFolder, "The folder to save the report file from iTunes Connect into.", :type => :string, :short => 'a'
+   version "2.0.0 2014 Justin Jeffress"
 
 end
 
-should_run_headless = ($opts.headless) ?  true : false
-class_name = "Salesdata_Extraction::Apple_reporter"
-
-def get_sales_from_table(the_sales_table, sales_date)
-	results = Array.new
-	the_sales_table.each do | row |
-		row_hash = Hash.new
-		row_hash[:title] = row.children[0].text
-		row_hash[:units_sold] = row.children[4].text
-		row_hash[:country] = row.children[7].text
-		row_hash[:apple_id] = row.children[8].text
-		row_hash[:crawl_date] = sales_date
-		results.push(row_hash)
-	end
-	return results
-end
+should_run_headless = ($opts.headless) ? true : false
 
 $BT_CONSTANTS = BTConstants.get_constants
-results = Selenium_harness.run(should_run_headless,class_name, lambda { | log |
+
+Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
+	        :api_key        => $BT_CONSTANTS[:parse_api_key]
+
+$batch = Parse::Batch.new
+$batch.max_requests = 50
+
+Watir_harness.download_folder = $opts.downloadFolder
+class_name = "Salesdata_Extraction::Apple_reporter"
+Watir_harness.run(should_run_headless, class_name, lambda { | log | 
+
 	results = Array.new
 
 	url = $BT_CONSTANTS[:itunes_connect_url]
 	
-	Selenium_harness.get(url)	
+	Watir_harness.browser.goto url
 	
-	username_input = Selenium_harness.find_element(:id, "accountname")
-	username_input.send_keys $BT_CONSTANTS[:itunes_connect_username]
-	
-	password_input = Selenium_harness.find_element(:id, "accountpassword")
-	password_input.send_keys $BT_CONSTANTS[:itunes_connect_password]
-	
-	login_button = Selenium_harness.find_element(:xpath, "(//input[@name='1.Continue'])[2]")
-	login_button.click
-	
-	sales_and_trends_link = Selenium_harness.find_element(:link_text, "Sales and Trends")
-	sales_and_trends_link.click
-	
-	wait = Selenium::WebDriver::Wait.new(:timeout => 5)
-	
-	wait.until { Selenium_harness.find_element(:id, "chart_canvas_kit").displayed? }
-	wait.until { Selenium_harness.find_element(:link_text, "Sales") }
-	
-	sales_link = Selenium_harness.find_element(:link_text, "Sales")
-	sales_link.click
+	Watir_harness.browser.text_field(:id, "accountname").set($BT_CONSTANTS[:itunes_connect_username])
+	Watir_harness.browser.text_field(:id, "accountpassword").set($BT_CONSTANTS[:itunes_connect_password])
 
-	sleep(5.0)
-	#wait.until { Selenium_harness.find_element(:xpath, "//table[@id='theForm:salesTable']/tbody/tr") }
-
+	Watir_harness.browser.button(:class, "sign-in").click
 	
-	the_page_data = Nokogiri.parse(Selenium_harness.page_source)	
-	the_sales_table = the_page_data.css("//table[@id='theForm:salesTable']/tbody/tr")
+	Watir_harness.browser.link(:text, "Sales and Trends").click
 	
-	#getting the current date
-	date = the_page_data.css("div#chosenDate")
+	sleep 5.0
+	Watir_harness.browser.span(:text, "Top Content").click
+	Watir_harness.browser.span(:text, "Reports").click
+	sleep 5.0
+	Watir_harness.browser.button(:xpath => "//div[2]/div[5]/div/button").click
 	
-	date_parts = date.text.strip.split
-	sales_date = "#{date_parts[2]}/#{Date::ABBR_MONTHNAMES.index(date_parts[0]).to_s.rjust(2,'0')}/#{date_parts[1].gsub(/,/,"").rjust(2,'0')} 00:00:00"
-   results.concat get_sales_from_table(the_sales_table, sales_date)
-   
-	#removed code that clicks the previous date Git Hash: d7b22336ed69a8caa957b023348d360a9aee9c0e
-	
-	return results
+	while !Dir.glob($opts.downloadFolder+"*.part").empty?
+		sleep(5.0)
+	end
 })
-
 
 def get_book_hash()
 	book_hash = Hash.new
@@ -114,47 +86,79 @@ def get_book_hash()
 	return book_hash
 end
 
-def save_sales_data_to_parse(results)
-	book_hash = get_book_hash()
-	results.each do | result |
-		apple_sales_data = Parse::Object.new("AppleSalesData")
-		apple_sales_data["book"] = book_hash[result[:apple_id].to_i]
-		apple_sales_data["appleId"] = result[:apple_id].to_i
-		apple_sales_data["dailySales"] = result[:units_sold].to_i
-		apple_sales_data["country"] = result[:country]
-		apple_sales_data["crawlDate"] = Parse::Date.new(result[:crawl_date])
-		
-		puts "#{result[:title]}\t#{result[:units_sold]}\t#{result[:country]}\t#{result[:apple_id]}\t#{result[:crawl_date]}" if $opts.dontSaveToParse
-		
-		if !$opts.dontSaveToParse
-			begin	
-				apple_sales_data.save
-			rescue Exception => e
-				puts e.message
-			end
-			sleep(5.0)
-		end
-	end
-end
+$book_hash = get_book_hash()
 
 def send_report_email(results)
 
 	top = "Apple Sales Numbers for #{results[0][:crawl_date]} PST <br /><br />\n"
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	email_parameters = {
-		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
-		:from    =>	'"Booktrope Daily Crawler 1.1" <justin.jeffress@booktrope.com>',
+		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com', #, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
+		:from    =>	'"Booktrope Daily Crawler 2.0" <justin.jeffress@booktrope.com>',
 		:subject => 'Apple Sales Numbers',
-		:html    => top + Mail_helper.alternating_table_body(results, "Apple ID" => :apple_id, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold, :total => [:units_sold])
+		:html    => top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:units_sold]}.reverse, "Apple ID" => :apple_id, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold, :total => [:units_sold])
 	}
 
 	mailgun.messages.send_email(email_parameters)
 end
 
-if !results.nil? && results.count > 0
-	#initialize parse
-	Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
-		        :api_key        => $BT_CONSTANTS[:parse_api_key]
-	save_sales_data_to_parse(results)
-	send_report_email(results)
+def process_zip_file(zip_path)
+	contents = ""
+	
+	Zlib::GzipReader.open(zip_path) do |gz|
+		contents = gz.read
+	end
+	
+	file_name = File.basename(zip_path, ".gz")
+	File.open(File.join($opts.archiveFolder, file_name), "w") do |f|
+		f.write contents
+	end
+	FileUtils.rm zip_path
+	csv_to_parse(contents)
+
+end
+
+def csv_to_parse(contents)
+	results = Array.new
+	csv = CSV.parse(contents, :headers => true, :col_sep => "\t")
+	csv.each do | row |
+		if row["Product Type Identifier"] == "EB1"
+			row_hash = Hash.new	
+			row_hash[:title] = row["Title"]
+			row_hash[:units_sold] = row["Units"].to_i
+			row_hash[:country] = row["Country Code"]
+			row_hash[:apple_id] = row["Apple Identifier"].to_i
+			date = row["Begin Date"].split "/"
+			row_hash[:crawl_date] = "#{date[2]}-#{date[0]}-#{date[1]} 00:00:00"
+
+			apple_sales_data = Parse::Object.new("AppleSalesData")
+			if $book_hash.has_key? row_hash[:apple_id]
+				apple_sales_data["book"] = $book_hash[row_hash[:apple_id]]
+			end
+			apple_sales_data["appleId"] = row_hash[:apple_id]
+			apple_sales_data["dailySales"] = row_hash[:units_sold].to_i
+			apple_sales_data["country"] = row_hash[:country]
+			apple_sales_data["crawlDate"] = Parse::Date.new(row_hash[:crawl_date])
+
+			$batch.create_object_run_when_full! apple_sales_data
+			puts "#{row["Title"]}\t#{row["Units"]}\t#{row["Country Code"]}\t#{row["Product Type Identifier"]}\t#{row["Begin Date"]}\t#{row["End Date"]}\t#{row["Apple Identifier"]}"
+			results.push row_hash
+		end
+	end
+	send_report_email results
+end
+
+def process_download_folder()
+	Dir.foreach($opts.downloadFolder) do | item |
+		next if item == '.' or item == '..' or item.start_with?('.')
+		gzip_file = File.join($opts.downloadFolder, item)
+		process_zip_file gzip_file
+	end
+end
+
+process_download_folder()
+
+if $batch.requests.length > 0
+	puts $batch.run!
+	$batch.requests.clear
 end
