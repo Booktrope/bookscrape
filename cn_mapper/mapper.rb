@@ -129,7 +129,7 @@ end
 sales_channels_to_map = [
 {:title => "Amazon", :book_control_number => "asin", :sales_table_name => "AmazonSalesData", :sales_control_number => "asin", :url => "<a href=\"http://amzn.com/{0}\">Amazon Store<a/>"},
 {:title => "Apple", :book_control_number => "appleId", :sales_table_name => "AppleSalesData", :sales_control_number => "appleId", :url => "<a href=\"https://itunes.apple.com/book/id{0}\">iBooks Store</a>"},
-{:title => "Createspace", :book_control_number => "createspaceIsbn", :sales_table_name => "CreateSpaceSalesData", :sales_control_number => "asin", :url => "< href=\"http://amzn.com/{0}\">Amazon Store</a>"},
+{:title => "Createspace", :book_control_number => "createspaceIsbn", :sales_table_name => "CreateSpaceSalesData", :sales_control_number => "asin", :url => "<a href=\"http://amzn.com/{0}\">Amazon Store</a>"},
 {:title => "Lightning Source", :book_control_number => "lightningSource", :sales_table_name => "LightningSalesData", :sales_control_number => "isbn", :url => "NA"},
 {:title => "Nook", :book_control_number => "bnid", :sales_table_name => "NookSalesData", :sales_control_number => "nookId", :url => "<a href=\"http://www.barnesandnoble.com/s/{0}?keyword={0}&store=nookstore\">Nook Store</a>"},
 ]
