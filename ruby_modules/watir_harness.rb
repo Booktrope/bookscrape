@@ -7,6 +7,15 @@ require File.join(basePath, '..', 'booktrope-modules')
 
 module Watir_harness
 	@browser = nil
+	@download_folder = ""
+	
+	def self.download_folder
+		return @download_folder
+	end
+	
+	def self.download_folder=(folder)
+		return @download_folder = folder
+	end
 	
 	def self.browser		
 		return @browser
@@ -36,9 +45,18 @@ module Watir_harness
 		#puts "SELENIUM_HARNESS::SETUP"
 		profile = Selenium::WebDriver::Firefox::Profile.new
 		if headless && RbConfig::CONFIG['host_os'].start_with?("darwin")
-			Selenium::Webbrowser::Firefox::Binary.path = "/opt/local/lib/firefox-x11/firefox-bin"
+		   Selenium::WebDriver::Firefox::Binary.path = "/opt/local/lib/firefox-x11/firefox-bin"
 			profile['general.useragent.override'] = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:25.0) Gecko/20100101 Firefox/25.0"
 		end
+		
+		#TODO: clean this up
+		profile['browser.download.folderList'] = 2
+		profile['browser.download.dir'] = @download_folder
+		profile["browser.download.manager.showWhenStarting"] = false
+		profile["browser.helperApps.alwaysAsk.force"]= false
+		profile['browser.helperApps.neverAsk.saveToDisk'] = "application/a-gzip,application/gzip, application/x-gzip, application/x-gunzip, application/gzipped, application/gzip-compressed, application/x-compressed, application/x-compress, gzip/document, application/octet-stream"
+		profile['pdfjs.disabled'] = true
+		
 		#puts "SELENIUM_HARNESS::SETUP #{Selenium::Webbrowser::Firefox::Binary.path}"
 
 		@browser = Watir::Browser.new :firefox , :profile => profile
