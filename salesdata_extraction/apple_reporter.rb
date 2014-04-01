@@ -49,14 +49,12 @@ Watir_harness.run(should_run_headless, class_name, lambda { | log |
 
 	Watir_harness.browser.button(:class, "sign-in").click
 	
-	Watir_harness.browser.link(:text, "Sales and Trends").click
+	Watir_harness.browser.goto "https://reportingitc2.apple.com/reports.html"
 	
+	Watir_harness.browser.button(:xpath => "//div[@id='reportGroups']/div[2]/div[5]/div/button").wait_until_present
 	sleep 5.0
-	Watir_harness.browser.span(:text, "Top Content").click
-	Watir_harness.browser.span(:text, "Reports").click
-	sleep 5.0
-	Watir_harness.browser.button(:xpath => "//div[2]/div[5]/div/button").click
-	
+	Watir_harness.browser.button(:xpath => "//div[@id='reportGroups']/div[2]/div[5]/div/button").click
+	sleep(5.0)
 	while !Dir.glob($opts.downloadFolder+"*.part").empty?
 		sleep(5.0)
 	end
@@ -85,8 +83,6 @@ def get_book_hash()
 	end
 	return book_hash
 end
-
-$book_hash = get_book_hash()
 
 def send_report_email(results)
 
@@ -140,7 +136,7 @@ def csv_to_parse(contents)
 			apple_sales_data["country"] = row_hash[:country]
 			apple_sales_data["crawlDate"] = Parse::Date.new(row_hash[:crawl_date])
 
-			$batch.create_object_run_when_full! apple_sales_data
+			$batch.create_object_run_when_full! apple_sales_data if !$opts.dontSaveToParse
 			puts "#{row["Title"]}\t#{row["Units"]}\t#{row["Country Code"]}\t#{row["Product Type Identifier"]}\t#{row["Begin Date"]}\t#{row["End Date"]}\t#{row["Apple Identifier"]}"
 			results.push row_hash
 		end
@@ -149,6 +145,7 @@ def csv_to_parse(contents)
 end
 
 def process_download_folder()
+	puts "processing the download folder: #{$opts.downloadFolder}"
 	Dir.foreach($opts.downloadFolder) do | item |
 		next if item == '.' or item == '..' or item.start_with?('.')
 		gzip_file = File.join($opts.downloadFolder, item)
@@ -156,9 +153,10 @@ def process_download_folder()
 	end
 end
 
+$book_hash = get_book_hash()
 process_download_folder()
 
-if $batch.requests.length > 0
+if $batch.requests.length > 0 && !$opts.dontSaveToParse
 	puts $batch.run!
 	$batch.requests.clear
 end
