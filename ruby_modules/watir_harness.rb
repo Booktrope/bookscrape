@@ -14,7 +14,7 @@ module Watir_harness
 	end
 	
 	def self.download_folder=(folder)
-		return @download_folder = folder
+		@download_folder = folder
 	end
 	
 	def self.browser		
@@ -51,6 +51,7 @@ module Watir_harness
 		
 		#TODO: clean this up
 		profile['browser.download.folderList'] = 2
+		puts "folder: #{@download_folder}"
 		profile['browser.download.dir'] = @download_folder
 		profile["browser.download.manager.showWhenStarting"] = false
 		profile["browser.helperApps.alwaysAsk.force"]= false
