@@ -1,15 +1,10 @@
-require 'nokogiri'
 require 'trollop'
-require 'parse-ruby-client'
 require 'mailgun'
 require 'time'
 require 'pp'
 
 basePath = File.absolute_path(File.dirname(__FILE__))
-# linking to custom modules
-require File.join(basePath, "..", "ruby_modules", "constants")
-require File.join(basePath, "..", "ruby_modules", "selenium_harness")
-require File.join(basePath, "..", "ruby_modules", "mail_helper")
+require File.join(basePath, '..', 'booktrope-modules')
 
 $opts = Trollop::options do
 
@@ -44,76 +39,66 @@ Parse.init :application_id => "RIaidI3C8TOI7h6e3HwEItxYGs9RLXxhO0xdkdM6",
 
 def amazon_change_prices(change_hash)
 	class_name = "Price_Changer::Amazon_KDP_Changer"
-	results = Selenium_harness.run($should_run_headless, class_name, lambda { | log |	
+	results = Watir_harness.run($should_run_headless, class_name, lambda { | log |
 		url = $BT_CONSTANTS[:amazon_kdp_url]
 		
-		#getting the amazon kdp page
-		Selenium_harness.get(url)
+		Watir_harness.browser.goto url
 		
-		#clicking the login button
-		sign_button = Selenium_harness.find_element(:css, "a.a-button-text")
-		sign_button.click
+		#logging in
+		Watir_harness.browser.a(:class, "a-button-text").click
+		Watir_harness.browser.text_field(:id, "ap_email").set($BT_CONSTANTS[:amazon_kdp_username])
+		Watir_harness.browser.text_field(:id, "ap_password").set($BT_CONSTANTS[:amazon_kdp_password])
+		Watir_harness.browser.button(:id, "signInSubmit-input").click
 		
-		#entering the username and password
-		username_input = Selenium_harness.find_element(:id, "ap_email")
-		username_input.send_keys $BT_CONSTANTS[:amazon_kdp_username]
-		
-		password_input = Selenium_harness.find_element(:id, "ap_password")
-		password_input.send_keys $BT_CONSTANTS[:amazon_kdp_password]
-		
-		#clicking the login button
-		login_button = Selenium_harness.find_element(:id, "signInSubmit-input")
-		login_button.click
-		
-		wait = Selenium::WebDriver::Wait.new(:timeout => 15)
-		
+		#changing prices
 		change_hash.each do | key, changeling |
 			changeling["status"] = 25
 			changeling.save
 			
 			edit_page_url = changeling["book"]["kdpUrl"]
-			edit_page_url = lookup_book_edit_page_url(change_hash, changeling["book"]["asin"]) if edit_page_url.nil? || edit_page_url == ""
-			Selenium_harness.get(edit_page_url)
+			if edit_page_url.nil? || edit_page_url == ""
+				edit_page_url = lookup_book_edit_page_url(change_hash, changeling["book"]["asin"])
+			end
+			next if edit_page_url.nil? || edit_page_url == "" #TODO log an error here
 			
-			wait.until { Selenium_harness.find_element(:xpath, "//div[@id='title-setup-step2']/div/div").displayed? }
-
-			if !Selenium_harness.find_element(:id, "title-setup-top-warning-alert").displayed?
-
-				step2_link = Selenium_harness.find_element(:xpath, "//div[@id='title-setup-step2']/div/div")
-				step2_link.click
+			Watir_harness.browser.goto(edit_page_url)
+			Watir_harness.browser.div(:xpath, "//div[@id='title-setup-step2']/div/div").wait_until_present
+			
+			if !Watir_harness.browser.div(:id, "title-setup-top-warning-alert").present?
+			
+				Watir_harness.browser.div(:xpath, "//div[@id='title-setup-step2']/div/div").click
 				
-				us_price = Selenium_harness.find_element(:id, "pricing-grid-US-price-input")
+				us_price = Watir_harness.browser.text_field(:id, "pricing-grid-US-price-input")
 				us_price.clear
 				us_price.send_keys changeling["price"]
 				
-				grid_alerts = Selenium_harness.find_elements(:id, 'pricing-grid-US-error-alert')
+				sleep(10.0)
 				
-				if changeling["price"] < 2.99 || changeling["price"] > 9.99 || (grid_alerts.length > 0 && grid_alerts[0].displayed?)
+				if changeling["price"] < 2.99 || changeling["price"] > 9.99
 					#make sure 35% Royalty
-					thirty_five_percent_royalty = Selenium_harness.find_element(:name, 'royaltyPlan')
-					if thirty_five_percent_royalty.methods.selected?
-						thirty_five_percent_royalty.click
+					thirty_five_percent_royalty = Watir_harness.browser.radio(:xpath, "(//input[@name='royaltyPlan'])[1]")
+					if !thirty_five_percent_royalty.set?
+						thirty_five_percent_royalty.set
 					end
 				else
 					#make sure 70% Royalty
-					seventy_percent_royalty = Selenium_harness.find_element(:xpath, "(//input[@name='royaltyPlan'])[2]")
-					if !seventy_percent_royalty.selected?
-						seventy_percent_royalty.click
+					seventy_percent_royalty = Watir_harness.browser.radio(:xpath, "(//input[@name='royaltyPlan'])[2]")
+					if	!seventy_percent_royalty.set?
+						seventy_percent_royalty.set
 					end
 				end
 				
-				agreement = Selenium_harness.find_element(:id, "title-setup-agreement")
-				agreement.click
+				Watir_harness.browser.checkbox(:id, "title-setup-agreement").set
 				
-				save_publish = Selenium_harness.find_element(:css, "span#title-setup-step2-submit input.a-button-input")
-				save_publish.click
+				# DON'T CLICK!!
+				#Watir_harness.browser.button(:css, "span#title-setup-step2-submit input.a-button-input").click
 				
 				sleep(15.0)
-				wait.until { Selenium_harness.find_element(:class, "a-button-input").displayed? }
+				#Watir_harness.button(:class, "a-button-input").wait_until_present
 				changeling["status"] = 50
 				changeling.save
-				back_to_shelf = Selenium_harness.find_element(:class, "a-button-input")
-				back_to_shelf.click
+				#back_to_shelf = Watir_harness.button(:class, "a-button-input").click
+				
 			else
 				log.error "Already Set"
 			end
@@ -124,22 +109,21 @@ end
 def lookup_book_edit_page_url(change_hash, current_asin)
 
 	result = ""
-	wait = Selenium::WebDriver::Wait.new(:timeout => 15)
 	done = false
 	i = 0
 	hash_count = 0
 	while(!done)
 		puts "Page: #{i+1}"
-		books = Selenium_harness.find_elements(:xpath, "//tr[@class='mt-row']")
+		books = Watir_harness.browser.trs(:class, "mt-row")
 		books.each do | book |
-			asin_elements = book.find_elements(:css, "div.asinText")
-			if asin_elements.count > 0
-				asin = asin_elements[0].text.strip.gsub(/\(ASIN: /, "").gsub(/\)$/, "")
+			
+			if book.div(:class, "asinText").present? > 0
+				asin = book.div(:class, "asinText").text.strip.gsub(/\(ASIN: /, "").gsub(/\)$/, "")
 				
 				if change_hash.has_key? asin
-					hash_count = hash_count + 1
-					anchor = book.find_element(:css, "div.kdpTitleField.kdpTitleLabel a.a-link-normal.mt-link-content")
-					edit_page_url = anchor.attribute("href")
+					hash_count = hash_count + 1					
+					edit_page_url = book.link(:class => "a-link-normal", :class => "mt-link-content").href
+					
 					puts "#{asin}\t#{edit_page_url}"
 					if change_hash[asin]["book"]["kdpUrl"] == "" || change_hash[asin]["book"]["kdpUrl"]
 						change_hash[asin]["book"]["kdpUrl"] = edit_page_url
@@ -153,14 +137,13 @@ def lookup_book_edit_page_url(change_hash, current_asin)
 						break
 					end
 				end
+				
 			end
 		end
 		#break if change_hash.size <= 0
-		next_button = Selenium_harness.find_elements(:xpath, "//a[contains(@href, '#next')]")
-		if next_button.count > 0
-			next_button[0].click
-			sleep(5.0)
-			wait.until { Selenium_harness.find_element(:xpath, "//tr[@class='mt-row']").displayed? }				
+		if browser.link(:xpath, "//a[contains(@href, '#next')]").present? > 0
+			browser.link(:xpath, "//a[contains(@href, '#next')]").click
+			Watir_harness.browser.tr(:class, "mt-row").wait_until_present
 		else
 			done = true 
 		end
@@ -172,139 +155,65 @@ end
 def nook_change_prices(change_hash)
 
 	class_name = "Price_Changer::Nookpress_Changer"
-	results = Selenium_harness.run($should_run_headless, class_name, lambda { | log |
-
-		results = Array.new
-
+	results = Watir_harness.run($should_run_headless, class_name, lambda { | log |
 		url = $BT_CONSTANTS[:nookpress_url]
 	
 		#requesting the page
-		Selenium_harness.get(url)
+		Watir_harness.browser.goto url
 	
 		#finding and clicking the login button
-		upper_login_button = Selenium_harness.find_element(:id, "clickclick")
-		upper_login_button.click
+		Watir_harness.browser.link(:id, "clickclick").click
 	
 		#entering credentials
-		username_input = Selenium_harness.find_element(:id, "email")
-		username_input.send_keys $BT_CONSTANTS[:nookpress_username]
-	
-		password_input = Selenium_harness.find_element(:id, "password")
-		password_input.send_keys $BT_CONSTANTS[:nookpress_password]
+		Watir_harness.browser.text_field(:id, "email").set($BT_CONSTANTS[:nookpress_username])
+		Watir_harness.browser.text_field(:id, "password").set($BT_CONSTANTS[:nookpress_password])
 	
 		#clicking on the login button
-		login_button = Selenium_harness.find_element(:id, "login_button")
-		login_button.click
-		
+		Watir_harness.browser.button(:id, "login_button").click
+
+		nook_lookup_book_edit_page_url change_hash
+
 	})
 end
 
-def lookup_book_edit_page_url(change_hash)
+def nook_lookup_book_edit_page_url(change_hash)
 	done = false
 		
 	nook_url_list = Array.new
 	while(!done)		
-		wait = Selenium::WebDriver::Wait.new(:timeout => 15)
-		wait.until { Selenium_harness.find_element(:class, "project-list").displayed? }
 
-		nook_project_list = Selenium_harness.find_elements(:css, "table.project-list tbody tr td.title a")
+		Watir_harness.browser.table(:class, "project-list").wait_until_present 
+
+		nook_project_list = Watir_harness.browser.links(:css, "table.project-list tbody tr td.title a")
 			nook_project_list.each do | nook_book |
-			nook_url_list.push nook_book.attribute("href")
-			puts nook_book.attribute("href")
+			nook_url_list.push nook_book.href
+			puts nook_book.href
 		end
 			
-		next_button = Selenium_harness.find_element(:css, "li.next.next_page")
+		next_button = Watir_harness.browser.li(:class, "next_page")
 		
-		if next_button.attribute("class").include? "disabled"
+		if next_button.class_name.include? "disabled"
 			done = true
 		else
-			next_button.find_element(:css, "a").click
+			next_button.link(:css, "a").click
 		end
 	end
 		
 	nook_url_list.each do | nook_url |
-		Selenium_harness.get(nook_url)
+		Watir_harness.browser.goto(nook_url)
 		
-		nook_id = Selenium_harness.find_element(:css, "div.row div.project-body.columns p").text.strip.gsub(/B&N Identifier:/,"").gsub(/\s/,"")
-		puts "#{nook_id}\t#{nook_url}"
+		nook_id = Watir_harness.browser.p(:css, "div.row div.project-body.columns p").text.strip.gsub(/B&N Identifier:/,"").gsub(/\s/,"")
+		epub_isbn = ""
 		
+		Watir_harness.browser.link(:text, "Title & Description").click
+		if Watir_harness.browser.radio(:id, "project_publish_settings_has_isbn_false").checked?
+			nook_id = "missing: " + nook_id
+		else
+			epub_isbn = Watir_harness.browser.text_field(:id, "project_publish_settings_isbn").value
+		end
+		puts "#{nook_id}\t#{epub_isbn}\t#{nook_url}"
 		sleep(5.0)
 	end
-end
-
-def apple_change_prices(change_hash)
-	class_name = "Price_Changer::iTunesConnect_Changer"
-	results = Selenium_harness.run($should_run_headless, class_name, lambda { | log |
-		url = $BT_CONSTANTS[:itunes_connect_url]
-	
-		
-		Selenium_harness.get(url)	
-	
-		username_input = Selenium_harness.find_element(:id, "accountname")
-		username_input.send_keys $BT_CONSTANTS[:itunes_connect_username]
-	
-		password_input = Selenium_harness.find_element(:id, "accountpassword")
-		password_input.send_keys $BT_CONSTANTS[:itunes_connect_password]
-	
-		login_button = Selenium_harness.find_element(:xpath, "(//input[@name='1.Continue'])[2]")
-		login_button.click
-		
-		manage_books_link = Selenium_harness.find_element(:link, "Manage Your Books")
-		manage_books_link.click
-		
-		change_hash.each do | key, changeling |
-			apple_id_input = Selenium_harness.find_element(:xpath, "//td[@id='search-param-value-appleId']/input")
-			puts changeling["book"]["appleId"]
-			apple_id_input.send_keys changeling["book"]["appleId"].to_s
-			
-			sleep(5.0)
-			search_button = Selenium_harness.find_element(:xpath, "//div[@id='titleSearch']/table/tbody/tr[11]/td[2]/input")
-			search_button.click
-			
-			book_link = Selenium_harness.find_element(:xpath, "//div[@id='book-list']/div[2]/table/tbody/tr[2]/td/div/p/a")
-			book_link.click
-			sleep(5.0)
-			
-			rights_and_pricing_link = Selenium_harness.find_element(:link, "Rights and Pricing")
-			rights_and_pricing_link.click
-			
-			edit_territories_btn = Selenium_harness.find_element(:xpath, "//span[@id='lcBoxWrapperHeaderUpdateContainer']/span/a/img")
-			edit_territories_btn.click
-			
-			currency_dropdown = Selenium_harness.find_element(:xpath, "//td[@id='baseCurr']/select")
-			options = currency_dropdown.find_elements(:tag_name, "option")
-			options.each do | option |
-				if(option.attribute("text") == "USD - US Dollar")
-					option.click
-					break
-				end
-			end
-			sleep(10.0)
-			price_input = Selenium_harness.find_element(:xpath, "//span[@id='InputContainer']/table/tbody/tr[7]/td[2]/span/input")
-			price_input.send_keys changeling["price"]
-			
-			start_date = Selenium_harness.find_element(:id, "startdate")
-			start_date.click
-			
-			today_button = Selenium_harness.find_element(:css, "button.ui-datepicker-nonebtn")
-			today_button.click
-			
-			end_date = Selenium_harness.find_element(:id, "enddate")
-			end_date.click
-			
-			none_button = Selenium_harness.find_element(:css, "button.ui-datepicker-nonebtn")
-			none_button.click			
-			
-			select_all = Selenium_harness.find_element(:link, "Select All")
-			select_all.click
-			
-			continue_button = Selenium_harness.find_element(:css , "span.wrapper-right-button input.continueActionButton")
-			continue_button.click
-			
-			sleep(5.0)
-			
-		end
-	})
 end
 
 def sendEmail(change_hash)
@@ -312,7 +221,7 @@ def sendEmail(change_hash)
 	top = "Prices Changed for #{Date.today} PST<br />\n<br />\n"
 	email_parameters = {
 		:to      => (!$opts.emailOverride.nil?) ? $opts.emailOverride : 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
-		:from    =>	'"KDP Price Changer" <justin.jeffress@booktrope.com>',
+		:from    =>	'"Price Changer" <justin.jeffress@booktrope.com>',
 		:subject => ($debug_parse_query) ? 'Price Changes (DEBUG changes not actually made)' : 'Price Changes',
 		:html    => top + Mail_helper.alternating_table_body_for_hash_of_parse_objects(change_hash, :col_data => [ "asin" => {:object => "", :field => "asin"}, "Title" => {:object => "book", :field => "title"}, "Author" => {:object => "book", :field => "author"}, "Price" => {:object => "", :field => "price"}])
 	}
@@ -320,26 +229,27 @@ def sendEmail(change_hash)
 end
 
 changelings = Parse::Query.new("PriceChangeQueue").tap do |q|
-   change_date = Time.parse((Date.today+1).strftime("%Y/%m/%d")+" "+"00:00:00").utc.strftime("%Y/%m/%d %H:00:00")
+   change_date = Time.parse((Date.today+1).strftime("%Y/%m/%d")+" "+"23:59:59").utc.strftime("%Y/%m/%d %H:00:00")
    puts change_date
    change_date = Parse::Date.new(change_date)
 	q.less_eq("changeDate", change_date)
 	q.less_eq("status", 25)
 	q.order_by ="changeDate"
 	q.in_query("salesChannel", Parse::Query.new("SalesChannel").tap do | inner_query |
-		inner_query.eq("name", "Apple")
+		inner_query.eq("name", "Nook")
 	end)
-	q.include = "book"
+	q.include = "book,salesChannel"
 end.get
 
 change_hash = Hash.new
 
 changelings.each do | changeling |
-	puts "#{changeling["book"]["appleId"]}\t#{changeling["status"]}\t#{changeling["book"]["title"]}\t#{changeling["book"]["author"]}\t#{changeling["price"]}"
-	change_hash[changeling["asin"]] = changeling
+	next if changeling["book"][changeling["salesChannel"]["controlField"]].nil?
+	puts "#{changeling["book"][changeling["salesChannel"]["controlField"]]}\t#{changeling["status"]}\t#{changeling["book"]["title"]}\t#{changeling["book"]["author"]}\t#{changeling["price"]}"
+	change_hash[changeling["book"][changeling["salesChannel"]["controlField"]]] = changeling
 end
 
-#nook_change_prices(change_hash) if !$debug_parse_query
-#amazon_change_prices(change_hash) if !$debug_parse_query
-apple_change_prices(change_hash) if !$debug_parse_query
+nook_change_prices(change_hash) if change_hash.keys.size > 0 && !$debug_parse_query
+#amazon_change_prices(change_hash) if change_hash.keys.size > 0 && !$debug_parse_query
+#apple_change_prices(change_hash) if !$debug_parse_query
 #sendEmail(change_hash) if !$opts.suppressMail && change_hash.length > 0
