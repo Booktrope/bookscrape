@@ -10,6 +10,7 @@
 !price_changer/
 !salesdata_extraction/
 !tools/
+!*.rb
 
 #ignoring logging files for amazon
 book_analysis/amazon/cron_log/*
