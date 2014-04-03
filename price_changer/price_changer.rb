@@ -6,6 +6,7 @@ require 'pp'
 basePath = File.absolute_path(File.dirname(__FILE__))
 require File.join(basePath, '..', 'booktrope-modules')
 
+
 $opts = Trollop::options do
 
    banner <<-EOS
@@ -171,7 +172,7 @@ def nook_change_prices(change_hash)
 		#clicking on the login button
 		Watir_harness.browser.button(:id, "login_button").click
 
-		nook_lookup_book_edit_page_url change_hash
+		#nook_lookup_book_edit_page_url change_hash
 
 	})
 end
@@ -216,6 +217,67 @@ def nook_lookup_book_edit_page_url(change_hash)
 	end
 end
 
+def apple_change_prices(change_hash)
+	class_name = "Price_Changer::iTunesConnect_Changer"
+	results = Watir_harness.run($should_run_headless, class_name, lambda { | log |
+	
+		url = $BT_CONSTANTS[:itunes_connect_url]
+		
+		Watir_harness.browser.goto url
+		
+		Watir_harness.browser.text_field(:id, "accountname").set($BT_CONSTANTS[:itunes_connect_username])
+		Watir_harness.browser.text_field(:id, "accountpassword").set($BT_CONSTANTS[:itunes_connect_password])
+		Watir_harness.browser.button(:class, "sign-in").click
+
+		
+		Watir_harness.browser.link(:text, "Manage Your Books").click
+		
+		change_hash.each do | key, changeling |
+			apple_id_input = Watir_harness.browser.td(:id, "search-param-value-appleId").text_field.set(changeling["book"]["appleId"])
+
+			log.info "Searching for: #{changeling["book"]["appleId"]}"			
+			Watir_harness.browser.div(:id, "titleSearch").td(:class, "searchfield").button.click
+			Watir_harness.browser.div(:class, "resultList").link.click
+			sleep(5.0)
+			
+			#Opening up the rights and pricing page
+			Watir_harness.browser.link(:text, "Rights and Pricing").click
+			
+			#Clicking on the Edit Existing Territories button and setting the base currency to US Dollars
+			Watir_harness.browser.span(:id, "lcBoxWrapperHeaderUpdateContainer").span(:class, "wrapper-topright-button").link.click
+			Watir_harness.browser.td(:id, "baseCurr").select_list.option(:text => "USD - US Dollar").select
+			sleep(10.0)
+			
+			#setting our new price
+			Watir_harness.browser.span(:id, "InputContainer").span(:class, "price-field").text_field.set changeling["price"]
+			log.info "setting the price at $#{changeling["price"]}"
+			
+			#setting the start date today via the javascript button
+			Watir_harness.browser.text_field(:id, "startdate").when_present.click
+			Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").click
+			
+			#setting the end date to none via the javascript button
+			Watir_harness.browser.text_field(:id, "enddate").when_present.click
+			Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").click
+			
+			#setting it for all territories.
+			Watir_harness.browser.link(:text, "Select All").click
+			#clicking the continue button
+			Watir_harness.browser.span(:class, "wrapper-right-button").text_field.click
+			
+			sleep(5.0)
+			#saving it
+			#Watir_harness.browser.span(:class, "wrapper-right-button").text_field.click
+		end
+	})
+end
+
+def add_days(time, n_days)
+  t2 = time + (n_days * 24 * 60 * 60)
+  utc_delta = time.utc_offset - t2.utc_offset
+  (utc_delta == 0) ? t2 : t2 + utc_delta
+end
+
 def sendEmail(change_hash)
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	top = "Prices Changed for #{Date.today} PST<br />\n<br />\n"
@@ -229,14 +291,15 @@ def sendEmail(change_hash)
 end
 
 changelings = Parse::Query.new("PriceChangeQueue").tap do |q|
-   change_date = Time.parse((Date.today+1).strftime("%Y/%m/%d")+" "+"23:59:59").utc.strftime("%Y/%m/%d %H:00:00")
+
+   change_date = add_days(Time.now.utc, 1).to_s
    puts change_date
    change_date = Parse::Date.new(change_date)
 	q.less_eq("changeDate", change_date)
 	q.less_eq("status", 25)
 	q.order_by ="changeDate"
 	q.in_query("salesChannel", Parse::Query.new("SalesChannel").tap do | inner_query |
-		inner_query.eq("name", "Nook")
+		inner_query.eq("name", "Apple")
 	end)
 	q.include = "book,salesChannel"
 end.get
@@ -245,11 +308,12 @@ change_hash = Hash.new
 
 changelings.each do | changeling |
 	next if changeling["book"][changeling["salesChannel"]["controlField"]].nil?
-	puts "#{changeling["book"][changeling["salesChannel"]["controlField"]]}\t#{changeling["status"]}\t#{changeling["book"]["title"]}\t#{changeling["book"]["author"]}\t#{changeling["price"]}"
+	puts "#{changeling["changeDate"].value}\t#{changeling["book"][changeling["salesChannel"]["controlField"]]}\t#{changeling["status"]}\t#{changeling["book"]["title"]}\t#{changeling["book"]["author"]}\t#{changeling["price"]}"
 	change_hash[changeling["book"][changeling["salesChannel"]["controlField"]]] = changeling
 end
 
-nook_change_prices(change_hash) if change_hash.keys.size > 0 && !$debug_parse_query
+#nook_change_prices(change_hash) if change_hash.keys.size > 0 && !$debug_parse_query
 #amazon_change_prices(change_hash) if change_hash.keys.size > 0 && !$debug_parse_query
-#apple_change_prices(change_hash) if !$debug_parse_query
+#apple_change_prices(change_hash) if change_hash.keys.size > 0 && !$debug_parse_query
 #sendEmail(change_hash) if !$opts.suppressMail && change_hash.length > 0
+
