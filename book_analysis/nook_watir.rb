@@ -50,7 +50,7 @@ def update_book(book, product_image_url)
 	end
 	
 	if book["detailPageUrlNook"].nil? || book["detailPageUrlNook"] == ""
-		book["detailPageUrlNook"] = Selenium_harness.current_url
+		book["detailPageUrlNook"] = Watir_harness.browser.url
 		should_update_book = true
 	end
 	
