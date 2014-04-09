@@ -1,7 +1,6 @@
 require 'trollop'
 require 'json'
 require 'time'
-require 'parse-ruby-client'
 require 'mailgun'
 
 $basePath   = File.absolute_path(File.dirname(__FILE__))
@@ -12,10 +11,7 @@ BOOK_ANALYSIS_LOOKUP_STATUS_DEFAULT = 0
 BOOK_ANALYSIS_LOOKUP_STATUS_FOUND = 1
 
 # linking to custom modules
-require File.join($basePath, "..", "ruby_modules", "bt_logging")
-require File.join($basePath, "..", "ruby_modules", "download_simple")
-require File.join($basePath, "..", "ruby_modules", "constants")
-require File.join($basePath, "..", "ruby_modules", "mail_helper")
+require File.join($basePath, '..', 'booktrope-modules')
 
 $opts = Trollop::options do
 
@@ -32,7 +28,6 @@ Extracts various meta data from iBooks using the iTunes search api.
 
 end
 
-
 log = Bt_logging.create_logging('Book_analysis::Apple')
 
 $BT_CONSTANTS = BTConstants.get_constants
@@ -40,6 +35,9 @@ $BT_CONSTANTS = BTConstants.get_constants
 Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
 	        :api_key        => $BT_CONSTANTS[:parse_api_key]
 
+
+$batch = Parse::Batch.new
+$batch.max_requests = 50
 
 def book_contains_control_number(book, control_number)
 	result = false
@@ -49,14 +47,26 @@ def book_contains_control_number(book, control_number)
 	return result
 end
 
-
 books = Parse::Query.new("Book").tap do |q|
 	#TODO:: create a helper function that loads the books in one shot.
    q.limit  = 1000
 end.get
 
-book_hash = Hash.new
+unconfirmed_hash = Hash.new
+change_queue = Parse::Query.new("PriceChangeQueue").tap do |q|
+	q.limit = 1000
+	q.eq("status", PRICE_CHANGE::UNCONFIRMED) 
+	q.in_query("salesChannel", Parse::Query.new("SalesChannel").tap do | inner_query |
+		inner_query.eq("name", PRICE_CHANGE::APPLE_CHANNEL)
+	end)
+	q.include = "book,salesChannel"
+end.get
 
+change_queue.each do | item |
+	unconfirmed_hash[item["book"]] = item
+end
+
+book_hash = Hash.new
 books.each do | book |
 	control_number = "appleId"
 	if !book_contains_control_number book, control_number
@@ -140,6 +150,19 @@ request_urls.each do | request_url |
          	book = book_hash[apple_id][:book]
 	         book_hash[apple_id][:status] = BOOK_ANALYSIS_LOOKUP_STATUS_FOUND
 	         
+	         if unconfirmed_hash.has_key? book
+	         	log.info "found a book with a price change. #{book["title"]} appleId: #{apple_id} #{unconfirmed_hash[book].id} #{price} #{unconfirmed_hash[book]["price"]}"
+	         	#Confirming that price_changer.rb has properly changed the price of the book.
+	         	if unconfirmed_hash[book]["price"] == price
+	         		log.info "CONFIRMED: Expected: #{unconfirmed_hash[book]["price"]} Actual: #{price}"
+		         	unconfirmed_hash[book]["status"] = PRICE_CHANGE::CONFIRMED
+		         	#Don't batch these up since we dont do these often and status is time 
+	   	      	#sensitive so we want to know as soon as it's confirmed.
+	      	   	unconfirmed_hash[book].save #if !$opts.dontSaveToParse 
+	         		sleep(1.0)
+	         	end
+	         end
+	         
 	   		crawl_date = Parse::Date.new(Time.now.utc.strftime("%Y/%m/%d %H:%M:%S"))
 				book_is_dirty = false
 	         #updating our book with its appleId, if we found the book via epubIsbnItunes
@@ -155,8 +178,7 @@ request_urls.each do | request_url |
 	         end
 	         
 	         if book_is_dirty && !$opts.dontSaveToParse
-	         	book.save
-	         	sleep(1.0)
+	         	!$batch.update_object_run_when_full!(book)
 	         end
 	         
 	         appleStats = Parse::Object.new("AppleStats")
@@ -166,25 +188,23 @@ request_urls.each do | request_url |
 	         appleStats['averageStars'] = averageUserRating.to_f
 	         appleStats['numOfReviews'] = userRatingCount.to_i
 	         appleStats['crawlDate'] = crawl_date
-	         appleStats.save if !$opts.dontSaveToParse
-	         sleep(1.0) if !$opts.dontSaveToParse
+	         $batch.create_object_run_when_full!(appleStats) if !$opts.dontSaveToParse
          else
-         end         
+         	#TODO: If we didn't have the apple_id for the book (looked up via epub isbn, we might need to look it up)
+         end
       end
 	else
 		log.error "Error Code #{response.code}: #{response.body}"
 	end
-	sleep(2.5)
-end
-
-apple_channel_query = Parse::Query.new("SalesChannel").tap do | q |
-	q.eq("name", "Apple")
+	sleep(1.0)
 end
 
 not_found = Parse::Query.new("NotFoundBooks").tap do | q |
 	q.limit = 1000
 	q.include = "book,salesChannel"
-	q.in_query "salesChannel", apple_channel_query
+	q.in_query( "salesChannel", Parse::Query.new("SalesChannel").tap do | q |
+		q.eq("name", "Apple")
+	end)
 end.get
 
 not_found_hash = Hash.new
@@ -204,8 +224,13 @@ book_hash.sort_by{|k| k[1][:book]["title"]}.each do | key, book_meta |
 			not_found_book["book"] = book_meta[:book]
 			not_found_book["salesChannel"] = apple_channel
 			not_found_book["reasonCode"] = book_meta[:status]
-			not_found_book.save
-			sleep 0.5
+			$batch.create_object_run_when_full!(not_found_book) if !$opts.dontSaveToParse
 		end		
 	end
+end
+
+if $batch.requests.length > 0
+	$batch.requests
+	$batch.run!
+	$batch.requests.clear
 end
