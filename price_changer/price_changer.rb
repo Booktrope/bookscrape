@@ -6,6 +6,9 @@ require 'pp'
 basePath = File.absolute_path(File.dirname(__FILE__))
 require File.join(basePath, '..', 'booktrope-modules')
 
+AMAZON = "Amazon"
+APPLE  = "Apple"
+NOOK   = "Nook"
 
 $opts = Trollop::options do
 
@@ -38,7 +41,7 @@ $BT_CONSTANTS = BTConstants.get_constants
 Parse.init :application_id => "RIaidI3C8TOI7h6e3HwEItxYGs9RLXxhO0xdkdM6",
 	        :api_key        => "EQVJvWgCKVp4zCc695szDDwyU5lWcO3ssEJzspxd"
 
-def amazon_change_prices(change_hash)
+def change_prices_for_amazon(change_hash)
 	class_name = "Price_Changer::Amazon_KDP_Changer"
 	results = Watir_harness.run($should_run_headless, class_name, lambda { | log |
 		url = $BT_CONSTANTS[:amazon_kdp_url]
@@ -153,7 +156,7 @@ def lookup_book_edit_page_url(change_hash, current_asin)
 	return result
 end
 
-def nook_change_prices(change_hash)
+def change_prices_for_nook(change_hash)
 
 	class_name = "Price_Changer::Nookpress_Changer"
 	results = Watir_harness.run($should_run_headless, class_name, lambda { | log |
@@ -217,7 +220,7 @@ def nook_lookup_book_edit_page_url(change_hash)
 	end
 end
 
-def apple_change_prices(change_hash)
+def change_prices_for_apple(change_hash)
 	class_name = "Price_Changer::iTunesConnect_Changer"
 	results = Watir_harness.run($should_run_headless, class_name, lambda { | log |
 	
@@ -278,42 +281,82 @@ def add_days(time, n_days)
   (utc_delta == 0) ? t2 : t2 + utc_delta
 end
 
-def sendEmail(change_hash)
+def sendEmail(body)
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	top = "Prices Changed for #{Date.today} PST<br />\n<br />\n"
 	email_parameters = {
-		:to      => (!$opts.emailOverride.nil?) ? $opts.emailOverride : 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
+		:to      => (!$opts.emailOverride.nil?) ? $opts.emailOverride : 'justin.jeffress@booktrope.com, andy@booktrope.com', #, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
 		:from    =>	'"Price Changer" <justin.jeffress@booktrope.com>',
 		:subject => ($debug_parse_query) ? 'Price Changes (DEBUG changes not actually made)' : 'Price Changes',
-		:html    => top + Mail_helper.alternating_table_body_for_hash_of_parse_objects(change_hash, :col_data => [ "asin" => {:object => "", :field => "asin"}, "Title" => {:object => "book", :field => "title"}, "Author" => {:object => "book", :field => "author"}, "Price" => {:object => "", :field => "price"}])
+		:html    => top + body
 	}
 	mailgun.messages.send_email(email_parameters)
 end
 
-changelings = Parse::Query.new("PriceChangeQueue").tap do |q|
 
-   change_date = add_days(Time.now.utc, 1).to_s
-   puts change_date
-   change_date = Parse::Date.new(change_date)
-	q.less_eq("changeDate", change_date)
-	q.less_eq("status", 25)
-	q.order_by ="changeDate"
-	q.in_query("salesChannel", Parse::Query.new("SalesChannel").tap do | inner_query |
-		inner_query.eq("name", "Apple")
-	end)
-	q.include = "book,salesChannel"
-end.get
+def get_change_hash_for(channel)
 
-change_hash = Hash.new
+	change_date = add_days(Time.now.utc, 1).to_s
+	puts change_date
+	changelings = Parse::Query.new("PriceChangeQueue").tap do |q|
+		q.less_eq("changeDate", Parse::Date.new(change_date))
+		q.less_eq("status", 25)
+		q.order_by ="changeDate"
+		q.in_query("salesChannel", Parse::Query.new("SalesChannel").tap do | inner_query |
+			inner_query.eq("name", channel)
+		end)
+		q.include = "book,salesChannel"
+	end.get
 
-changelings.each do | changeling |
-	next if changeling["book"][changeling["salesChannel"]["controlField"]].nil?
-	puts "#{changeling["changeDate"].value}\t#{changeling["book"][changeling["salesChannel"]["controlField"]]}\t#{changeling["status"]}\t#{changeling["book"]["title"]}\t#{changeling["book"]["author"]}\t#{changeling["price"]}"
-	change_hash[changeling["book"][changeling["salesChannel"]["controlField"]]] = changeling
+	change_hash = Hash.new
+
+	changelings.each do | changeling |
+		next if changeling["book"][changeling["salesChannel"]["controlField"]].nil?
+		puts "#{changeling["changeDate"].value}\t#{changeling["book"][changeling["salesChannel"]["controlField"]]}\t#{changeling["status"]}\t#{changeling["book"]["title"]}\t#{changeling["book"]["author"]}\t#{changeling["price"]}\t#{changeling["isEnd"]}"
+		control_number = changeling["book"][changeling["salesChannel"]["controlField"]]
+	
+		puts "#{changeling["changeDate"].value}\t#{DateTime.parse(change_date)}"
+		puts changeling["changeDate"].value < DateTime.parse(change_date)
+		
+		if changeling["isEnd"] && (changeling["changeDate"].value <= DateTime.parse(Time.now.utc.to_s))
+			change_hash[control_number] = (!change_hash.has_key? control_number || changeling["changeDate"].value < change_hash[control_number]["changeDate"].value) ? changeling : change_hash[control_number]
+		elsif !changeling["isEnd"] && changeling["changeDate"].value <= DateTime.parse(change_date)
+			#If for some reason there are multiple change requests within our span, we want the most recent change.
+			#For example if we run a one day promo, we may get both items from the queue, so we only want to do 
+			#one of price changes.
+			#TODO: 2.0 feature prevent a new price change from being inserted within an existing price change span.
+			change_hash[control_number] = (!change_hash.has_key? control_number || changeling["changeDate"].value < change_hash[control_number]["changeDate"].value) ? changeling : change_hash[control_number]
+		end
+	end
+	return change_hash
 end
 
-#nook_change_prices(change_hash) if change_hash.keys.size > 0 && !$debug_parse_query
-#amazon_change_prices(change_hash) if change_hash.keys.size > 0 && !$debug_parse_query
-#apple_change_prices(change_hash) if change_hash.keys.size > 0 && !$debug_parse_query
-#sendEmail(change_hash) if !$opts.suppressMail && change_hash.length > 0
+def change_prices_for(channel, change_hash)
+	 case channel
+	 	when AMAZON
+	 		puts "Amazon"
+	 		#change_prices_for_amazon(change_hash)
+	 	when APPLE
+	 		puts "Apple"
+	 		#change_prices_for_apple(change_hash)
+	 	when NOOK
+	 		puts "Nook"
+	 		#change_prices_for_nook(change_hash)
+	 end
+end
 
+body = ""
+["Amazon", "Apple", "Nook"].each do | channel |
+	change_hash = get_change_hash_for channel
+	if change_hash.keys.size > 0 && !$debug_parse_query
+		change_prices_for channel, change_hash
+		change_hash.each do | key, changeling |
+			changeling["status"] = 50
+			#changeling.save
+			sleep 0.5
+		end
+		body = body +"<h1>#{channel}</h1><br/>\n"+ Mail_helper.alternating_table_body_for_hash_of_parse_objects(change_hash, :col_data => [ "asin" => {:object => "", :field => "asin"}, "Title" => {:object => "book", :field => "title"}, "Author" => {:object => "book", :field => "author"}, "Price" => {:object => "", :field => "price"}, "Status" => {:object => "", :field => "status"}])
+	end
+end
+
+sendEmail(body) if !$opts.suppressMail && body.length > 0
