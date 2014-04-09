@@ -18,6 +18,16 @@ class CONST_KDP
 	PASSWORD = "password"
 end
 
+class PRICE_CHANGE
+	SCHEDULED   = 0
+	ATTEMPTED   = 25
+	UNCONFIRMED = 50
+	CONFIRMED   = 99
+	AMAZON_CHANNEL = "Amazon"
+	APPLE_CHANNEL  = "Apple"
+	NOOk_CHANNEL   = "Nook"
+end
+
 #The parse.com keys (used for referring to the key values in a config.json file)
 class CONST_PARSE
 	LABEL          = "parse"
