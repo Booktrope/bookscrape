@@ -6,10 +6,6 @@ require 'pp'
 basePath = File.absolute_path(File.dirname(__FILE__))
 require File.join(basePath, '..', 'booktrope-modules')
 
-AMAZON = "Amazon"
-APPLE  = "Apple"
-NOOK   = "Nook"
-
 $opts = Trollop::options do
 
    banner <<-EOS
@@ -99,7 +95,7 @@ def change_prices_for_amazon(change_hash)
 				
 				sleep(15.0)
 				#Watir_harness.button(:class, "a-button-input").wait_until_present
-				changeling["status"] = 50
+				changeling["status"] = PRICE_CHANGE::UNCONFIRMED
 				changeling.save
 				#back_to_shelf = Watir_harness.button(:class, "a-button-input").click
 				
@@ -300,7 +296,7 @@ def get_change_hash_for(channel)
 	puts change_date
 	changelings = Parse::Query.new("PriceChangeQueue").tap do |q|
 		q.less_eq("changeDate", Parse::Date.new(change_date))
-		q.less_eq("status", 25)
+		q.less_eq("status", PRICE_CHANGE::ATTEMPTED)
 		q.order_by ="changeDate"
 		q.in_query("salesChannel", Parse::Query.new("SalesChannel").tap do | inner_query |
 			inner_query.eq("name", channel)
@@ -333,25 +329,25 @@ end
 
 def change_prices_for(channel, change_hash)
 	 case channel
-	 	when AMAZON
+	 	when PRICE_CHANGE::AMAZON_CHANNEL
 	 		puts "Amazon"
 	 		#change_prices_for_amazon(change_hash)
-	 	when APPLE
+	 	when PRICE_CHANGE::APPLE_CHANNEL
 	 		puts "Apple"
 	 		#change_prices_for_apple(change_hash)
-	 	when NOOK
+	 	when PRICE_CHANGE::NOOK_CHANNEL
 	 		puts "Nook"
 	 		#change_prices_for_nook(change_hash)
 	 end
 end
 
 body = ""
-["Amazon", "Apple", "Nook"].each do | channel |
+[PRICE_CHANGE::AMAZON_CHANNEL, PRICE_CHANGE::APPLE_CHANNEL, PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
 	change_hash = get_change_hash_for channel
 	if change_hash.keys.size > 0 && !$debug_parse_query
 		change_prices_for channel, change_hash
 		change_hash.each do | key, changeling |
-			changeling["status"] = 50
+			changeling["status"] = PRICE_CHANGE::UNCONFIRMED
 			#changeling.save
 			sleep 0.5
 		end
