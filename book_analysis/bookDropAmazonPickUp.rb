@@ -236,6 +236,9 @@ Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
 changelings = Parse::Query.new("PriceChangeQueue").tap do |q|
 	q.limit = 1000
 	q.eq("status", 50)
+	q.in_query("salesChannel", Parse::Query.new("SalesChannel").tap do | inner_query |
+		inner_query.eq("name", "Amazon")
+	end)	
 end.get
 
 changelings.each do | changeling |
