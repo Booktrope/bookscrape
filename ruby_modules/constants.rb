@@ -25,7 +25,7 @@ class PRICE_CHANGE
 	CONFIRMED   = 99
 	AMAZON_CHANNEL = "Amazon"
 	APPLE_CHANNEL  = "Apple"
-	NOOk_CHANNEL   = "Nook"
+	NOOK_CHANNEL   = "Nook"
 end
 
 #The parse.com keys (used for referring to the key values in a config.json file)
