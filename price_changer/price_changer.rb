@@ -91,13 +91,13 @@ def change_prices_for_amazon(change_hash)
 				Watir_harness.browser.checkbox(:id, "title-setup-agreement").set
 				
 				# DON'T CLICK!!
-				#Watir_harness.browser.button(:css, "span#title-setup-step2-submit input.a-button-input").click
+				Watir_harness.browser.button(:css, "span#title-setup-step2-submit input.a-button-input").click
 				
 				sleep(15.0)
-				#Watir_harness.button(:class, "a-button-input").wait_until_present
+				Watir_harness.browser.button(:class, "a-button-input").wait_until_present
 				changeling["status"] = PRICE_CHANGE::UNCONFIRMED
 				changeling.save
-				#back_to_shelf = Watir_harness.button(:class, "a-button-input").click
+				Watir_harness.browser.button(:class, "a-button-input").click
 				
 			else
 				log.error "Already Set"
@@ -171,18 +171,46 @@ def change_prices_for_nook(change_hash)
 		#clicking on the login button
 		Watir_harness.browser.button(:id, "login_button").click
 
-		#nook_lookup_book_edit_page_url change_hash
+		change_hash.each do | key, changeling |
 
+			edit_page_url = changeling["book"]["nookUrl"]
+			
+			if edit_page_url.nil? || edit_page_url == ""
+				#edit_page_url = nook_lookup_book_edit_page_url(change_hash, changeling["book"]["epubIsbnItunes"])
+			end
+			
+			next if edit_page_url.nil? || edit_page_url == "" #TODO log an error here
+			
+			Watir_harness.browser.goto edit_page_url
+			
+			Watir_harness.browser.link(:text, "Rights & Pricing").click
+			
+			if Watir_harness.browser.div(:class => "alert-box", :class => "error").present?
+				#browser.div(:class => "alert-box", :class => "error").text == "You have missing or invalid fields in your NOOK Book details. You must fix the appropriate fields before posting changes to the store."
+				next # TODO log the error.
+			end
+			Watir_harness.browser.text_field(:id, "prices_USD").clear
+			Watir_harness.browser.text_field(:id, "prices_USD").send_keys changeling["price"]
+			
+			Watir_harness.browser.button(:id, "submit_publish_settings_button").wait_until_present			
+			Watir_harness.browser.button(:id, "submit_publish_settings_button").click
+			
+			Watir_harness.browser.div(:class => "alert-box", :class => "warning", :class => "squeeze").wait_until_present
+			Watir_harness.browser.div(:class => "alert-box", :class => "warning", :class => "squeeze").text.end_with? "Changes can take up to 24 hours to appear on the site."
+			
+			changeling["status"] = PRICE_CHANGE::UNCONFIRMED
+			changeling.save
+			sleep(1.0)
+		end
 	})
 end
 
-def nook_lookup_book_edit_page_url(change_hash)
+def nook_lookup_book_edit_page_url(change_hash, current_id)
 	done = false
-		
+	result = ""
 	nook_url_list = Array.new
-	while(!done)		
-
-		Watir_harness.browser.table(:class, "project-list").wait_until_present 
+	while(!done)
+		Watir_harness.browser.table(:class, "project-list").wait_until_present
 
 		nook_project_list = Watir_harness.browser.links(:css, "table.project-list tbody tr td.title a")
 			nook_project_list.each do | nook_book |
@@ -212,8 +240,16 @@ def nook_lookup_book_edit_page_url(change_hash)
 			epub_isbn = Watir_harness.browser.text_field(:id, "project_publish_settings_isbn").value
 		end
 		puts "#{nook_id}\t#{epub_isbn}\t#{nook_url}"
+		
+		if change_hash.has_key? nook_id
+			puts "match #{nook_id}"
+			change_hash[nook_id]["book"]["nookUrl"] = nook_url
+			change_hash[nook_id]["book"]["nookUrl"].save
+			result = nook_url if nook_id == current_id
+		end
 		sleep(5.0)
 	end
+	return result
 end
 
 def change_prices_for_apple(change_hash)
@@ -253,10 +289,12 @@ def change_prices_for_apple(change_hash)
 			
 			#setting the start date today via the javascript button
 			Watir_harness.browser.text_field(:id, "startdate").when_present.click
+			Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").wait_until_present
 			Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").click
 			
 			#setting the end date to none via the javascript button
 			Watir_harness.browser.text_field(:id, "enddate").when_present.click
+			Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").wait_until_present			
 			Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").click
 			
 			#setting it for all territories.
@@ -265,8 +303,13 @@ def change_prices_for_apple(change_hash)
 			Watir_harness.browser.span(:class, "wrapper-right-button").text_field.click
 			
 			sleep(5.0)
-			#saving it
-			#Watir_harness.browser.span(:class, "wrapper-right-button").text_field.click
+			
+			Watir_harness.browser.span(:class, "wrapper-right-button").text_field.click
+			Watir_harness.browser.button(:class, "doneActionButton").wait_until_present
+			Watir_harness.browser.button(:class, "doneActionButton").click
+			
+			changeling["status"] = PRICE_CHANGE::UNCONFIRMED
+			changeling.save
 		end
 	})
 end
@@ -331,18 +374,19 @@ def change_prices_for(channel, change_hash)
 	 case channel
 	 	when PRICE_CHANGE::AMAZON_CHANNEL
 	 		puts "Amazon"
-	 		#change_prices_for_amazon(change_hash)
+	 		change_prices_for_amazon(change_hash)
 	 	when PRICE_CHANGE::APPLE_CHANNEL
 	 		puts "Apple"
-	 		#change_prices_for_apple(change_hash)
+	 		change_prices_for_apple(change_hash)
 	 	when PRICE_CHANGE::NOOK_CHANNEL
 	 		puts "Nook"
-	 		#change_prices_for_nook(change_hash)
+	 		change_prices_for_nook(change_hash)
 	 end
 end
 
 body = ""
 [PRICE_CHANGE::AMAZON_CHANNEL, PRICE_CHANGE::APPLE_CHANNEL, PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
+#[PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
 	change_hash = get_change_hash_for channel
 	if change_hash.keys.size > 0 && !$debug_parse_query
 		change_prices_for channel, change_hash
