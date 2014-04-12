@@ -1,6 +1,7 @@
 require 'trollop'
 require 'mailgun'
 require 'time'
+require 'exchange'
 require 'pp'
 
 basePath = File.absolute_path(File.dirname(__FILE__))
@@ -52,7 +53,7 @@ def change_prices_for_amazon(change_hash)
 		
 		#changing prices
 		change_hash.each do | key, changeling |
-			changeling["status"] = 25
+			changeling["status"] = PRICE_CHANGE::ATTEMPTED
 			changeling.save
 			
 			edit_page_url = changeling["book"]["kdpUrl"]
@@ -172,11 +173,13 @@ def change_prices_for_nook(change_hash)
 		Watir_harness.browser.button(:id, "login_button").click
 
 		change_hash.each do | key, changeling |
-
+			changeling["status"] = PRICE_CHANGE::ATTEMPTED
+			changeling.save
+			
 			edit_page_url = changeling["book"]["nookUrl"]
 			
 			if edit_page_url.nil? || edit_page_url == ""
-				#edit_page_url = nook_lookup_book_edit_page_url(change_hash, changeling["book"]["epubIsbnItunes"])
+				edit_page_url = nook_lookup_book_edit_page_url(change_hash, changeling["book"]["epubIsbnItunes"])
 			end
 			
 			next if edit_page_url.nil? || edit_page_url == "" #TODO log an error here
@@ -264,10 +267,12 @@ def change_prices_for_apple(change_hash)
 		Watir_harness.browser.text_field(:id, "accountpassword").set($BT_CONSTANTS[:itunes_connect_password])
 		Watir_harness.browser.button(:class, "sign-in").click
 
-		
 		Watir_harness.browser.link(:text, "Manage Your Books").click
 		
 		change_hash.each do | key, changeling |
+			changeling["status"] = PRICE_CHANGE::ATTEMPTED
+			changeling.save
+			
 			apple_id_input = Watir_harness.browser.td(:id, "search-param-value-appleId").text_field.set(changeling["book"]["appleId"])
 
 			log.info "Searching for: #{changeling["book"]["appleId"]}"			
@@ -278,40 +283,92 @@ def change_prices_for_apple(change_hash)
 			#Opening up the rights and pricing page
 			Watir_harness.browser.link(:text, "Rights and Pricing").click
 			
-			#Clicking on the Edit Existing Territories button and setting the base currency to US Dollars
-			Watir_harness.browser.span(:id, "lcBoxWrapperHeaderUpdateContainer").span(:class, "wrapper-topright-button").link.click
-			Watir_harness.browser.td(:id, "baseCurr").select_list.option(:text => "USD - US Dollar").select
-			sleep(10.0)
 			
-			#setting our new price
-			Watir_harness.browser.span(:id, "InputContainer").span(:class, "price-field").text_field.set changeling["price"]
-			log.info "setting the price at $#{changeling["price"]}"
+			if !changeling["isPriceIncrease"]
+				#Clicking on the Edit Existing Territories button and setting the base currency to US Dollars
+				Watir_harness.browser.span(:id, "lcBoxWrapperHeaderUpdateContainer").span(:class, "wrapper-topright-button").link.click
+				Watir_harness.browser.td(:id, "baseCurr").select_list.option(:text => "USD - US Dollar").select
+				sleep(10.0)
 			
+				#setting our new price
+				Watir_harness.browser.span(:id, "InputContainer").span(:class, "price-field").text_field.set changeling["price"]
+				log.info "setting the price at $#{changeling["price"]}"
+			
+				#setting the start date today via the javascript button
+				Watir_harness.browser.text_field(:id, "startdate").when_present.click
+				Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").wait_until_present
+				Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").click
+			
+				#setting the end date to none via the javascript button
+				Watir_harness.browser.text_field(:id, "enddate").when_present.click
+				Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").wait_until_present			
+				Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").click
+			
+				#setting it for all territories.
+				Watir_harness.browser.link(:text, "Select All").click
+				#clicking the continue button
+				Watir_harness.browser.span(:class, "wrapper-right-button").text_field.click
+			
+				sleep(5.0)
+			
+				Watir_harness.browser.span(:class, "wrapper-right-button").text_field.click
+				Watir_harness.browser.button(:class, "doneActionButton").wait_until_present
+				Watir_harness.browser.button(:class, "doneActionButton").click
+			
+				changeling["status"] = PRICE_CHANGE::UNCONFIRMED
+				changeling.save
+			else
+				territory_hash = {"United States" => :usd, "Canada" => :cad, "United Kingdom" => :gbp, "Australia" => :aud}
+				territory_hash.each do | country, currency |
+					update_by_territory country, currency, changeling["price"], log
+					#might need to add a #wait_until_present
+				end
+				changeling["status"] = PRICE_CHANGE::UNCONFIRMED
+				changeling.save
+			end
+		end
+	})
+end
+
+def update_by_territory(country, currency, price, log)
+	territories = Watir_harness.browser.div(:class, "resultList").table(:class => "main", :class => "content-status", :class => "vpp").trs
+	territories.each do | territory |
+		if country == territory.tds[0].text
+			territory.tds[0].click
+						
+			Watir_harness.browser.text_field(:xpath, "//div[@id='editPanel']/div/table/tbody/tr[2]/td[2]/input").wait_until_present
+			Watir_harness.browser.text_field(:xpath, "//div[@id='editPanel']/div/table/tbody/tr[2]/td[2]/input").clear
+			price = price.in(:usd).in(currency).to_s(:plain) if currency != :usd
+			Watir_harness.browser.text_field(:xpath, "//div[@id='editPanel']/div/table/tbody/tr[2]/td[2]/input").set(price)
+			
+			log.info "set price to #{price}"
+			Watir_harness.browser.table(:xpath, "//div[@id='editPanel']/div/table").click
+			log.info "clicked on table"
+					
+			size = Watir_harness.browser.select_list(:id, "pricingPopup").options.size
+			log.info "number of options: #{size}"
+			
+			Watir_harness.browser.select_list(:id, "pricingPopup").options[size-1].select
+			log.info "select the last item"
+			Watir_harness.browser.table(:xpath, "//div[@id='editPanel']/div/table").click
+						
 			#setting the start date today via the javascript button
 			Watir_harness.browser.text_field(:id, "startdate").when_present.click
 			Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").wait_until_present
 			Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").click
+			log.info "set the start date"
 			
 			#setting the end date to none via the javascript button
 			Watir_harness.browser.text_field(:id, "enddate").when_present.click
 			Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").wait_until_present			
 			Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").click
-			
-			#setting it for all territories.
-			Watir_harness.browser.link(:text, "Select All").click
-			#clicking the continue button
-			Watir_harness.browser.span(:class, "wrapper-right-button").text_field.click
-			
-			sleep(5.0)
-			
-			Watir_harness.browser.span(:class, "wrapper-right-button").text_field.click
-			Watir_harness.browser.button(:class, "doneActionButton").wait_until_present
-			Watir_harness.browser.button(:class, "doneActionButton").click
-			
-			changeling["status"] = PRICE_CHANGE::UNCONFIRMED
-			changeling.save
+			log.info "set the end date"
+						
+			Watir_harness.browser.button(:xpath, "//div[@id='editPanel']/div[3]/input[2]").click
+			log.info "hit the save button"
+			break
 		end
-	})
+	end
 end
 
 def add_days(time, n_days)
@@ -331,7 +388,6 @@ def sendEmail(body)
 	}
 	mailgun.messages.send_email(email_parameters)
 end
-
 
 def get_change_hash_for(channel)
 
@@ -390,11 +446,11 @@ body = ""
 	change_hash = get_change_hash_for channel
 	if change_hash.keys.size > 0 && !$debug_parse_query
 		change_prices_for channel, change_hash
-		change_hash.each do | key, changeling |
-			changeling["status"] = PRICE_CHANGE::UNCONFIRMED
-			#changeling.save
-			sleep 0.5
-		end
+		#change_hash.each do | key, changeling |
+		#	changeling["status"] = PRICE_CHANGE::UNCONFIRMED
+		#	#changeling.save
+		#	sleep 0.5
+		#end
 		body = body +"<h1>#{channel}</h1><br/>\n"+ Mail_helper.alternating_table_body_for_hash_of_parse_objects(change_hash, :col_data => [ "asin" => {:object => "", :field => "asin"}, "Title" => {:object => "book", :field => "title"}, "Author" => {:object => "book", :field => "author"}, "Price" => {:object => "", :field => "price"}, "Status" => {:object => "", :field => "status"}])
 	end
 end
