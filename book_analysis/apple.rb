@@ -35,7 +35,6 @@ $BT_CONSTANTS = BTConstants.get_constants
 Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
 	        :api_key        => $BT_CONSTANTS[:parse_api_key]
 
-
 $batch = Parse::Batch.new
 $batch.max_requests = 50
 
@@ -63,8 +62,13 @@ change_queue = Parse::Query.new("PriceChangeQueue").tap do |q|
 end.get
 
 change_queue.each do | item |
-	unconfirmed_hash[item["book"]] = item
+	if !unconfirmed_hash.has_key? item["book"]
+		unconfirmed_hash[item["book"]] = item
+	else
+		unconfirmed_hash[item["book"]] = item if unconfirmed_hash[item["book"]]["changeDate"].value > item["changeDate"].value
+	end
 end
+
 
 book_hash = Hash.new
 books.each do | book |

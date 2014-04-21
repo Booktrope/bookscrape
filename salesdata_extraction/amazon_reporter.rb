@@ -1,13 +1,8 @@
 require 'nokogiri'
 require 'trollop'
-require 'parse-ruby-client'
-require 'mailgun'
 
-basePath = File.absolute_path(File.dirname(__FILE__))
-# linking to custom modules
-require File.join(basePath, "..", "ruby_modules", "constants")
-require File.join(basePath, "..", "ruby_modules", "selenium_harness")
-require File.join(basePath, "..", "ruby_modules", "mail_helper")
+$basePath = File.absolute_path(File.dirname(__FILE__))
+require File.join($basePath, '..', 'booktrope-modules')
 
 $opts = Trollop::options do
 
@@ -168,14 +163,6 @@ def save_sales_data_to_parse(results)
 		#getting the book object to link the amazon_sales_data to.
 		book = book_hash[result[:asin]]
 		
-		#if we lack a book then it's not in parse so we add it. Next time the amazon book pick up tool runs
-		#the rest of the data will be filled out.
-		if book.nil?
-			book = Parse::Object.new("Book")
-			book["asin"] = result[:asin]
-			book.save if !$opts.dontSaveToParse
-		end
-	
 		amazon_sales_data = Parse::Object.new("AmazonSalesData")
 		amazon_sales_data["book"] = book
 		amazon_sales_data["asin"] = result[:asin]

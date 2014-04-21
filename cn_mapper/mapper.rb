@@ -1,18 +1,12 @@
 require 'trollop'
 require 'json'
 require 'time'
-require 'parse-ruby-client'
 require 'mailgun'
 require 'pp'
 
-$basePath   = File.absolute_path(File.dirname(__FILE__))
-$config_dir = File.join($basePath, "config")
-
 # linking to custom modules
-require File.join($basePath, "..", "ruby_modules", "bt_logging")
-require File.join($basePath, "..", "ruby_modules", "download_simple")
-require File.join($basePath, "..", "ruby_modules", "constants")
-require File.join($basePath, "..", "ruby_modules", "mail_helper")
+$basePath   = File.absolute_path(File.dirname(__FILE__))
+require File.join($basePath, '..', 'booktrope-modules')
 
 log = Bt_logging.create_logging('cn_mapper::Mapper')
 
@@ -74,13 +68,16 @@ def map_sales_data_to_book(book_hash, sales_data_cn, table_name, url)
 
 	not_found = Array.new
 
-	batch_max = 50
+
 	batch = Parse::Batch.new
+	batch.max_requests = 50
+
 	ls_query.each do | ls_stat |
 		isbn = ls_stat[sales_data_cn]
-		
+		isbn_10 = ""
 		if table_name.eql? "CreateSpaceSalesData"
-			isbn = convert_ISBN10_to_ISBN13(ls_stat[sales_data_cn])		
+			isbn_10 = ls_stat[sales_data_cn]
+			isbn = convert_ISBN10_to_ISBN13(isbn_10)
 			#puts "#{ls_stat[sales_data_cn]} #{isbn}"
 		end
 
@@ -88,17 +85,11 @@ def map_sales_data_to_book(book_hash, sales_data_cn, table_name, url)
 			book = book_hash[isbn]
 			
 			#puts "found"
-			
 			ls_stat["book"] = book
 						
-			batch.update_object ls_stat
-			if batch.requests.length > 0 && batch.requests.length % batch_max == 0
-				batch.run!
-				#pp batch.requests
-				batch.requests.clear
-			end
+			batch.update_object_run_when_full! ls_stat
 		else
-			not_found.push({:cn => isbn , :url => url.gsub(/\{0\}/, isbn.to_s)})
+			not_found.push({:cn => isbn , :url => url.gsub(/\{0\}/, (isbn_10 != "") ? isbn_10.to_s : isbn.to_s)})
 		end
 	end
 
@@ -123,7 +114,6 @@ def map_no_book_sales_to_book_per_channel(sales_channels_to_map)
 		body += Mail_helper.alternating_table_body(not_found, "ISBN" => :cn, "URL" => :url)
 	end
 	send_report_email body if body.length > 0
-	puts body
 end
 
 sales_channels_to_map = [
