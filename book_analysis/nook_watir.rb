@@ -26,7 +26,7 @@ $BT_CONSTANTS = BTConstants.get_constants
 
 Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
 	        :api_key        => $BT_CONSTANTS[:parse_api_key]
-
+        
 def save_stats(book, bnid, book_price, sales_rank, average_rating, review_count)
 	nook_stats = Parse::Object.new("NookStats")
 	nook_stats["bnid"] = bnid
@@ -66,7 +66,7 @@ def hydrate_from_marshal(file)
 	return hash
 end
 
-def crawl_nook(book_list)
+def crawl_nook(book_list, unconfirmed_hash)
 	class_name = "Book_analysis::Nook_watir"
 	should_run_headless = ($opts.headless) ?  true : false
 	Watir_harness.run(should_run_headless, class_name, lambda { | log | 
@@ -144,6 +144,13 @@ def crawl_nook(book_list)
 	
 				puts "#{book_price}\t#{sales_rank}\t#{average_rating}\t#{review_count}\t#{product_image_url}" if $opts.dontSaveToParse
 
+				if unconfirmed_hash.has_key? book
+					if book_price.to_i == unconfirmed_hash[book]["price"].to_i
+						unconfirmed_hash[book]["status"] = PRICE_CHANGE::CONFIRMED
+						unconfirmed_hash[book].save
+					end
+				end
+				
 				stats_saved = save_stats(book, bnid, book_price, sales_rank, average_rating, review_count) if !$opts.dontSaveToParse
 				book_saved = update_book(book, product_image_url)
 
@@ -187,27 +194,64 @@ def crawl_nook(book_list)
 	})
 end
 
-def run(should_run_headless, class_name, lambda)
-	browser = Watir::Browser.new :firefox
-	log = Bt_logging.create_logging(class_name)
-	lambda.call(log)
-	browser.quit
+def get_unconfirmed_hash
+	unconfirmed_hash = Hash.new
+	
+	change_queue = get_change_queue
+	change_queue.each do | item |
+		unconfirmed_hash[item["book"]] = item
+	end
+	
+	return unconfirmed_hash
+end
+
+def get_change_queue
+
+	change_queue = Parse::Query.new("PriceChangeQueue").tap do |q|
+		q.limit = 1000
+		q.eq("status", PRICE_CHANGE::UNCONFIRMED) 
+		q.in_query("salesChannel", Parse::Query.new("SalesChannel").tap do | inner_query |
+			inner_query.eq("name", PRICE_CHANGE::NOOK_CHANNEL)
+		end)
+		q.include = "book,salesChannel"
+	end.get
+	
+	return change_queue
+end
+
+def get_book_list
+	book_list = Array.new
+	if Time.now.hour == 5
+		book_list = Parse::Query.new("Book").tap do | q |
+			q.exists("bnid")
+			q.limit = 1000
+		end.get
+	else
+		get_change_queue().each do | changeling |
+			book_list.push changeling["book"]
+		end
+	end
+	
+	return book_list
 end
 
 $batch = Parse::Batch.new
 $batch.max_requests = 50
 
+unconfirmed_hash = get_unconfirmed_hash
+
+
 book_list = Array.new
 if $opts.marshalFile.nil?
-	book_list = Parse::Query.new("Book").tap do | q |
-		q.exists("bnid")
-		q.limit = 1000
-	end.get
+	book_list = get_book_list
 else
 	puts $opts.marshalFile
 	book_hash = hydrate_from_marshal($opts.marshalFile)
 	book_list = book_hash["book_groups"]
 end
+
+pp book_list
+#raise "crash on purpose"
 
 $current_index = 0
 $book_group = Array.new
@@ -231,5 +275,5 @@ end
 
 $book_group.each_with_index do | list, index |
 	$current_index = index
-	crawl_nook list
+	crawl_nook list, unconfirmed_hash
 end

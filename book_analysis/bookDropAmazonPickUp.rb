@@ -247,6 +247,7 @@ end
 
 
 book_count = Parse::Query.new("Book").tap do |q|
+	q.exists("asin")
    q.limit = 0
    q.count = 1
 end.get	  
@@ -258,6 +259,7 @@ if book_count["count"] > 0
 	while !done
 		
 		book_list = Parse::Query.new("Book").tap do |q|
+			q.exists("asin")
 			q.skip = skip 
 			q.limit = 10
 		end.get
