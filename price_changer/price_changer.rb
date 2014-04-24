@@ -60,7 +60,11 @@ def change_prices_for_amazon(change_hash)
 			if edit_page_url.nil? || edit_page_url == ""
 				edit_page_url = lookup_book_edit_page_url(change_hash, changeling["book"]["asin"])
 			end
-			next if edit_page_url.nil? || edit_page_url == "" #TODO log an error here
+			
+			if edit_page_url.nil? || edit_page_url == ""
+				log.error "edit page url not found!"
+				next
+			end
 			
 			Watir_harness.browser.goto(edit_page_url)
 			Watir_harness.browser.div(:xpath, "//div[@id='title-setup-step2']/div/div").wait_until_present
@@ -94,7 +98,7 @@ def change_prices_for_amazon(change_hash)
 				# DON'T CLICK!!
 				Watir_harness.browser.button(:css, "span#title-setup-step2-submit input.a-button-input").click
 				
-				sleep(15.0)
+				sleep(35.0)
 				Watir_harness.browser.button(:class, "a-button-input").wait_until_present
 				changeling["status"] = PRICE_CHANGE::UNCONFIRMED
 				changeling.save
@@ -179,10 +183,13 @@ def change_prices_for_nook(change_hash)
 			edit_page_url = changeling["book"]["nookUrl"]
 			
 			if edit_page_url.nil? || edit_page_url == ""
-				edit_page_url = nook_lookup_book_edit_page_url(change_hash, changeling["book"]["epubIsbnItunes"])
+				edit_page_url = nook_lookup_book_edit_page_url(change_hash, changeling["book"]["bnid"])
 			end
 			
-			next if edit_page_url.nil? || edit_page_url == "" #TODO log an error here
+			if edit_page_url.nil? || edit_page_url == ""
+				log.error "edit page url not found"
+				next
+			end
 			
 			Watir_harness.browser.goto edit_page_url
 			
@@ -190,7 +197,8 @@ def change_prices_for_nook(change_hash)
 			
 			if Watir_harness.browser.div(:class => "alert-box", :class => "error").present?
 				#browser.div(:class => "alert-box", :class => "error").text == "You have missing or invalid fields in your NOOK Book details. You must fix the appropriate fields before posting changes to the store."
-				next # TODO log the error.
+				log.error "can't edit book due to missing or invalid fields."
+				next 
 			end
 			Watir_harness.browser.text_field(:id, "prices_USD").clear
 			Watir_harness.browser.text_field(:id, "prices_USD").send_keys changeling["price"]
@@ -212,9 +220,12 @@ def nook_lookup_book_edit_page_url(change_hash, current_id)
 	done = false
 	result = ""
 	nook_url_list = Array.new
+	
+	#loop until we've reached the last index page of books. 
 	while(!done)
 		Watir_harness.browser.table(:class, "project-list").wait_until_present
-
+		
+		#navigating all of the index pages and collecting the url for each edit book url.
 		nook_project_list = Watir_harness.browser.links(:css, "table.project-list tbody tr td.title a")
 			nook_project_list.each do | nook_book |
 			nook_url_list.push nook_book.href
@@ -229,7 +240,8 @@ def nook_lookup_book_edit_page_url(change_hash, current_id)
 			next_button.link(:css, "a").click
 		end
 	end
-		
+	
+	#looking up the bnid and epub isbn for the book.
 	nook_url_list.each do | nook_url |
 		Watir_harness.browser.goto(nook_url)
 		
@@ -242,12 +254,14 @@ def nook_lookup_book_edit_page_url(change_hash, current_id)
 		else
 			epub_isbn = Watir_harness.browser.text_field(:id, "project_publish_settings_isbn").value
 		end
+		
+		#TODO: track alerts and send an email 
 		puts "#{nook_id}\t#{epub_isbn}\t#{nook_url}"
 		
 		if change_hash.has_key? nook_id
 			puts "match #{nook_id}"
 			change_hash[nook_id]["book"]["nookUrl"] = nook_url
-			change_hash[nook_id]["book"]["nookUrl"].save
+			change_hash[nook_id]["book"].save
 			result = nook_url if nook_id == current_id
 		end
 		sleep(5.0)
@@ -446,11 +460,6 @@ body = ""
 	change_hash = get_change_hash_for channel
 	if change_hash.keys.size > 0 && !$debug_parse_query
 		change_prices_for channel, change_hash
-		#change_hash.each do | key, changeling |
-		#	changeling["status"] = PRICE_CHANGE::UNCONFIRMED
-		#	#changeling.save
-		#	sleep 0.5
-		#end
 		body = body +"<h1>#{channel}</h1><br/>\n"+ Mail_helper.alternating_table_body_for_hash_of_parse_objects(change_hash, :col_data => [ "asin" => {:object => "", :field => "asin"}, "Title" => {:object => "book", :field => "title"}, "Author" => {:object => "book", :field => "author"}, "Price" => {:object => "", :field => "price"}, "Status" => {:object => "", :field => "status"}])
 	end
 end
