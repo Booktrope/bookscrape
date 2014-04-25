@@ -123,7 +123,7 @@ def csv_to_parse(contents)
 			row_hash[:title] = row["Title"]
 			row_hash[:units_sold] = row["Units"].to_i
 			row_hash[:country] = row["Country Code"]
-			row_hash[:apple_id] = row["Apple Identifier"].to_i
+			row_hash[:apple_id] = row["Apple Identifier"]
 			date = row["Begin Date"].split "/"
 			row_hash[:crawl_date] = "#{date[2]}-#{date[0]}-#{date[1]} 00:00:00"
 
