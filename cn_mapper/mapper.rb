@@ -56,7 +56,7 @@ def convert_ISBN10_to_ISBN13(isbn10)
 		check_digit = bound - check_digit	
 	end
 	result = result + check_digit.to_s
-	return result.to_i
+	return result
 end
 
 def map_sales_data_to_book(book_hash, sales_data_cn, table_name, url)

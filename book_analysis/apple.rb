@@ -150,7 +150,7 @@ request_urls.each do | request_url |
          
          puts "\"%s\",%s,%s,%s,%s,%s,%s,%s" % [title, author, price, apple_id, userRatingCount, averageUserRating, detailUrl, imageUrl100] if $opts.dontSaveToParse
          
-         if book_hash.has_key? apple_id.to_i
+         if book_hash.has_key? apple_id
          	book = book_hash[apple_id][:book]
 	         book_hash[apple_id][:status] = BOOK_ANALYSIS_LOOKUP_STATUS_FOUND
 	         
@@ -187,7 +187,7 @@ request_urls.each do | request_url |
 	         
 	         appleStats = Parse::Object.new("AppleStats")
 	         appleStats['book'] = book
-	         appleStats['appleId'] = apple_id.to_i
+	         appleStats['appleId'] = apple_id
 	         appleStats['price'] = price
 	         appleStats['averageStars'] = averageUserRating.to_f
 	         appleStats['numOfReviews'] = userRatingCount.to_i
