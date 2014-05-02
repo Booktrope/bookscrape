@@ -1,5 +1,6 @@
 require 'nokogiri'
 require 'trollop'
+require 'mailgun'
 
 $basePath = File.absolute_path(File.dirname(__FILE__))
 require File.join($basePath, '..', 'booktrope-modules')

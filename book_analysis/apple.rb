@@ -2,6 +2,7 @@ require 'trollop'
 require 'json'
 require 'time'
 require 'mailgun'
+require 'pp'
 
 $basePath   = File.absolute_path(File.dirname(__FILE__))
 $config_dir = File.join($basePath, "config")
@@ -40,7 +41,7 @@ $batch.max_requests = 50
 
 def book_contains_control_number(book, control_number)
 	result = false
-	if !book.nil? && !control_number.nil? && !book[control_number].nil? && book[control_number] != 0
+	if !book.nil? && !control_number.nil? && !book[control_number].nil? && book[control_number] != ""
 		result = true
 	end
 	return result
@@ -48,6 +49,7 @@ end
 
 books = Parse::Query.new("Book").tap do |q|
 	#TODO:: create a helper function that loads the books in one shot.
+	q.exists("title")
    q.limit  = 1000
 end.get
 
@@ -88,6 +90,7 @@ count = 0
 max = 20
 request_urls = Array.new
 book_hash.each do | key, book_container |
+	book = book_container[:book]
 
 	if book_container[:control_number] == "objectId"
 		log.warn "Skipped: insufficient control numbers: #{book_container[:book]["title"]}"
@@ -95,7 +98,6 @@ book_hash.each do | key, book_container |
 		next
 	end
 	
-	book = book_container[:book]
 	control_number = book[book_container[:control_number]]	
 	lookup = "#{(book_container[:control_number] == "appleId")? "id": "isbn" }=#{control_number}"
 	
@@ -139,7 +141,7 @@ request_urls.each do | request_url |
       id, author, apple_id, title, price, detailUrl, averageUserRating, userRatingCount, imageUrl100 = ""
    
       results.each do |result|
-      	apple_id = result["trackId"]
+      	apple_id = result["trackId"].to_s
          author = result["artistName"]
          title = result["trackName"]
          price = result["price"]
@@ -187,7 +189,7 @@ request_urls.each do | request_url |
 	         
 	         appleStats = Parse::Object.new("AppleStats")
 	         appleStats['book'] = book
-	         appleStats['appleId'] = apple_id
+	         appleStats['appleId'] = apple_id.to_i
 	         appleStats['price'] = price
 	         appleStats['averageStars'] = averageUserRating.to_f
 	         appleStats['numOfReviews'] = userRatingCount.to_i

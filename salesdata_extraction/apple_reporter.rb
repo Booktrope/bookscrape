@@ -131,7 +131,7 @@ def csv_to_parse(contents)
 			if $book_hash.has_key? row_hash[:apple_id]
 				apple_sales_data["book"] = $book_hash[row_hash[:apple_id]]
 			end
-			apple_sales_data["appleId"] = row_hash[:apple_id]
+			apple_sales_data["appleId"] = row_hash[:apple_id].to_i
 			apple_sales_data["dailySales"] = row_hash[:units_sold].to_i
 			apple_sales_data["country"] = row_hash[:country]
 			apple_sales_data["crawlDate"] = Parse::Date.new(row_hash[:crawl_date])
