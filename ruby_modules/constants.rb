@@ -79,6 +79,12 @@ class CONST_TWILIO
 	AUTH_TOKEN = "auth_token"
 end
 
+class CONST_RJMETRICS
+	LABEL     = "rjmetrics"
+	CLIENT_ID = "client_id"
+	API_KEY   = "api_key"
+end
+
 module BTConstants
    @basePath = File.absolute_path(File.dirname(__FILE__))
 	@constants = nil
@@ -128,6 +134,9 @@ module BTConstants
 
 		hash[:twilio_account_sid]  = config_json[CONST_TWILIO::LABEL][CONST_TWILIO::ACCOUNT_SID]
 		hash[:twilio_auth_token]   = config_json[CONST_TWILIO::LABEL][CONST_TWILIO::AUTH_TOKEN]
+		
+		hash[:rjmetrics_client_id] = config_json[CONST_RJMETRICS::LABEL][CONST_RJMETRICS::CLIENT_ID]
+		hash[:rjmetrics_api_key]   = config_json[CONST_RJMETRICS::LABEL][CONST_RJMETRICS::API_KEY]
 		
 		return hash
 	end

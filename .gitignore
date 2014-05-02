@@ -8,6 +8,7 @@
 !reports/
 !cn_mapper/
 !price_changer/
+!rjmetrics/
 !salesdata_extraction/
 !tools/
 !*.rb

@@ -41,5 +41,9 @@
    "twilio":{
      "account_sid": "AC2980067718d40f28035f4bb858f9be6e",
      "auth_token": "e27948e87e55c31c0f2dee2586cd49c5"
-  }
+  },
+   "rjmetrics":{
+   	"client_id": 2283,
+   	"api_key": "4bd03b1d95ea1c8f4cd24e3653e37f15"
+   }
 }
