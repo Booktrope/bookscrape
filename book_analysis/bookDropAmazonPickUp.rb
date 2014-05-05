@@ -1,6 +1,5 @@
 # encoding: utf-8
 require "amazon/ecs"
-require "parse-ruby-client"
 require "nokogiri"
 require "trollop"
 require 'json'
@@ -10,9 +9,7 @@ require 'pp'
 
 basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
-require File.join(basePath, "..","ruby_modules", "bt_logging")
-require File.join(basePath, "..","ruby_modules", "constants")
-require File.join(basePath, "..","ruby_modules", "download_simple")
+require File.join(basePath, '..', 'booktrope-modules')
 
 opts = Trollop::options do
 
@@ -28,6 +25,7 @@ Pulls data from Amazon
    version "0.1.3 2013 Justin Jeffress"
 
 end
+
 
 $log = Bt_logging.create_logging('Book_analysis::Amazon')
 $changeQueue = Hash.new
@@ -137,7 +135,8 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 			if !manufacturer.nil?  && book_object['publisher']   != manufacturer then book_object['publisher'] = manufacturer; flag |= 16 end
 
 			begin
-				book_object.save if flag & 31 # anding our max value (of 5 bits) if greater than 0 we know we had a change 				
+				#book_object.save if flag & 31 # anding our max value (of 5 bits) if greater than 0 we know we had a change 				
+				$batch.update_object_run_when_full! book_object if flag & 31
 			rescue Exception => e
 				$log.error pp book_object
 				$log.error pp e
@@ -157,7 +156,8 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 
 			crawl_object['book'] = book_object
 			begin
-				crawl_object.save
+				#crawl_object.save
+				$batch.create_object_run_when_full! crawl_object
 			rescue Exception => e
 				$log.error pp crawl_object
 				$log.error pp e
@@ -226,11 +226,14 @@ Amazon::Ecs.options = {
 :AWS_secret_key    => BT_CONSTANTS[:amazon_ecs_secret_key]
 }
 
-Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
-	        :api_key        => BT_CONSTANTS[:parse_api_key]
+#Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
+#	        :api_key        => BT_CONSTANTS[:parse_api_key]
 
-#Parse.init :application_id => "RIaidI3C8TOI7h6e3HwEItxYGs9RLXxhO0xdkdM6",
-#	        :api_key        => "EQVJvWgCKVp4zCc695szDDwyU5lWcO3ssEJzspxd"
+Parse.init :application_id => "RIaidI3C8TOI7h6e3HwEItxYGs9RLXxhO0xdkdM6",
+	        :api_key        => "EQVJvWgCKVp4zCc695szDDwyU5lWcO3ssEJzspxd"
+
+$batch = Parse::Batch.new
+$batch.max_requests = 50
 
 
 changelings = Parse::Query.new("PriceChangeQueue").tap do |q|
@@ -281,4 +284,10 @@ if book_count["count"] > 0
 		harvestAmazonData(asin_args, bookHash, shouldSaveToParse) if asin_args.length > 0
 		done = true if skip >= book_count["count"]
 	end
+end
+
+if $batch.requests.length > 0
+	$batch.requests
+	$batch.run!
+	$batch.requests.clear
 end
