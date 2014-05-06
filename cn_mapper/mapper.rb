@@ -33,7 +33,7 @@ def load_book_hash(book_list, key)
 	book_hash = Hash.new
 	book_list.each do | book |
 		if !book[key].nil? && book[key] != 0
-			book_hash[book[key]] = book
+			book_hash[book[key].to_i] = book
 		end
 	end
 	return book_hash
@@ -89,6 +89,7 @@ def map_sales_data_to_book(book_hash, sales_data_cn, table_name, url)
 						
 			batch.update_object_run_when_full! ls_stat
 		else
+			#puts "Not found: #{isbn}"
 			not_found.push({:cn => isbn , :url => url.gsub(/\{0\}/, (isbn_10 != "") ? isbn_10.to_s : isbn.to_s)})
 		end
 	end
