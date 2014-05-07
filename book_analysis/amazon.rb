@@ -171,20 +171,8 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 		if $changeQueue.has_key? asin
 			
 			if kindle_price.to_f == $changeQueue[asin]["price"]
-				$changeQueue[asin]["status"] = 99
+				$changeQueue[asin]["status"] = PRICE_CHANGE::CONFIRMED
 				$changeQueue[asin].save
-				
-				require 'twilio-ruby'
-				account_sid = 'AC2980067718d40f28035f4bb858f9be6e'
-				auth_token = 'e27948e87e55c31c0f2dee2586cd49c5'
-				client = Twilio::REST::Client.new account_sid, auth_token
-				client.account.messages.create(:from => '+18183348793',
-				:to => '+13102924925',
-				:body => "Price Verified #{asin} #{kindle_price.to_f}")
-				client = Twilio::REST::Client.new account_sid, auth_token
-				client.account.messages.create(:from => '+18183348793',
-				:to => '+18183085878',
-				:body => "Price Verified #{asin} #{kindle_price.to_f}")
 			end
 		end
 		
