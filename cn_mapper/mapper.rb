@@ -20,7 +20,7 @@ def send_report_email(body)
 	top += "Please add the control numbers below to the corresponding project in teamtrope.<br /><br />"
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	email_parameters = {
-		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com', #, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
+		:to      => 'Justin Jeffress <justin.jeffress@booktrope.com>, Andy Roberts <andy@booktrope.com>, Heather Ludviksson <heather.ludviksson@booktrope.com>, Kelsey Wong <kelsey@booktrope.com>',
 		:from    =>	'"Booktrope Mapper" <justin.jeffress@booktrope.com>',
 		:subject => 'Unable to Map Sales Data to Book',
 		:html    => top + body
@@ -29,11 +29,12 @@ def send_report_email(body)
 end
 
 
-def load_book_hash(book_list, key)
+def load_book_hash(book_list, key, control_number_name)
 	book_hash = Hash.new
 	book_list.each do | book |
 		if !book[key].nil? && book[key] != 0
-			book_hash[book[key].to_i] = book
+			control_number = (control_number_name == "asin") ? book[key] : book[key].to_i
+			book_hash[control_number] = book
 		end
 	end
 	return book_hash
@@ -81,15 +82,16 @@ def map_sales_data_to_book(book_hash, sales_data_cn, table_name, url)
 			#puts "#{ls_stat[sales_data_cn]} #{isbn}"
 		end
 
+
 		if isbn != 0 && book_hash.has_key?(isbn)
 			book = book_hash[isbn]
 			
-			#puts "found"
+			puts "found"
 			ls_stat["book"] = book
 						
 			batch.update_object_run_when_full! ls_stat
 		else
-			#puts "Not found: #{isbn}"
+			puts "Not found: #{isbn} class: #{isbn.class}"
 			not_found.push({:cn => isbn , :url => url.gsub(/\{0\}/, (isbn_10 != "") ? isbn_10.to_s : isbn.to_s)})
 		end
 	end
@@ -108,7 +110,7 @@ def map_no_book_sales_to_book_per_channel(sales_channels_to_map)
 
 	body = ""
 	sales_channels_to_map.each do | channel |
-		book_hash = load_book_hash(book_list, channel[:book_control_number])
+		book_hash = load_book_hash(book_list, channel[:book_control_number], channel[:sales_control_number])
 		not_found = map_sales_data_to_book(book_hash, channel[:sales_control_number], channel[:sales_table_name], channel[:url])
 		
 		body += "<h2>#{channel[:title]}</h2>\n<br />\n"
