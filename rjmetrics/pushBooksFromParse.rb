@@ -55,6 +55,7 @@ def syncParseBooks(skip)
 		book_hash["largeImageNook"] = book["largeImageNook"]
 		book_hash["detailUrlNook"] = book["detailUrlNook"]
 		
+		book_hash["publicationDateAmazon"] = book["publicationDateAmazon"]
 		book_hash["createdAt"] = book["createdAt"]
 		book_hash["updatedAt"] = book["updatedAt"]
 
