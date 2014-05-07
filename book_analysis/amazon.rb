@@ -22,7 +22,7 @@ Pulls data from Amazon
 
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
    opt :pathToHtmlFiles, "The path to save the html files that are captured if an extracted value is not found.", :type => :string, :short => 'p'
-   version "0.1.3 2013 Justin Jeffress"
+   version "1.0.0 2014 Justin Jeffress"
 
 end
 
@@ -48,6 +48,7 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 		largeImageUrl = item.get('LargeImage/URL')
 		author = item.get('ItemAttributes/Author')
 		manufacturer = item.get('ItemAttributes/Manufacturer')
+		publication_date = Parse::Date.new(item.get('ItemAttributes/PublicationDate'))
 		title = item.get('ItemAttributes/Title')
 		
 		book_object = bookHash[asin]
@@ -128,20 +129,21 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 		   #we only update if a field that we pull form amazon is different than what is already stored in parse. (except the asin that just wouldn't make sense)
 		   flag = 0
 		   
-			if !title.nil?         && book_object['title']       != title then book_object['title'] = title; flag |= 1 end
-			if !detailPageUrl.nil? && book_object['detail_url']  != detailPageUrl then book_object['detail_url'] = detailPageUrl; flag |= 2 end
-			if !largeImageUrl.nil? && book_object['large_image'] != largeImageUrl then book_object['large_image'] = largeImageUrl; flag |= 4 end
-			if !author.nil?        && book_object['author']      != author then book_object['author'] = author; flag |= 8 end
-			if !manufacturer.nil?  && book_object['publisher']   != manufacturer then book_object['publisher'] = manufacturer; flag |= 16 end
+			if !title.nil?            && book_object['title']                 != title then book_object['title'] = title; flag |= 1 end
+			if !detailPageUrl.nil?    && book_object['detail_url']            != detailPageUrl then book_object['detail_url'] = detailPageUrl; flag |= 2 end
+			if !largeImageUrl.nil?    && book_object['large_image']           != largeImageUrl then book_object['large_image'] = largeImageUrl; flag |= 4 end
+			if !author.nil?           && book_object['author']                != author then book_object['author'] = author; flag |= 8 end
+			if !manufacturer.nil?     && book_object['publisher']             != manufacturer then book_object['publisher'] = manufacturer; flag |= 16 end
+			if !publication_date.nil? && book_object['publicationDateAmazon'] != publication_date then book_object['publicationDateAmazon'] = publication_date; flag |= 32 end
 
 			begin
-				#book_object.save if flag & 31 # anding our max value (of 5 bits) if greater than 0 we know we had a change 				
-				$batch.update_object_run_when_full! book_object if flag & 31
+				#book_object.save if flag & 63 # anding our max value (of 6 bits) if greater than 0 we know we had a change 				
+				$batch.update_object_run_when_full! book_object if flag & 63
 			rescue Exception => e
 				$log.error pp book_object
 				$log.error pp e
 			end
-			#TODO: add a log of what we changed by anding by, 1,2,4,8,16 to see if we get a value > 0, if so then the corresponding field changed. 
+			#TODO: add a log of what we changed by anding by, 1,2,4,8,16, and 32 to see if we get a value > 0, if so then the corresponding field changed. 
 			
 			price_get = true if kindle_price != "0"
 			
@@ -226,11 +228,8 @@ Amazon::Ecs.options = {
 :AWS_secret_key    => BT_CONSTANTS[:amazon_ecs_secret_key]
 }
 
-#Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
-#	        :api_key        => BT_CONSTANTS[:parse_api_key]
-
-Parse.init :application_id => "RIaidI3C8TOI7h6e3HwEItxYGs9RLXxhO0xdkdM6",
-	        :api_key        => "EQVJvWgCKVp4zCc695szDDwyU5lWcO3ssEJzspxd"
+Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
+	        :api_key        => BT_CONSTANTS[:parse_api_key]
 
 $batch = Parse::Batch.new
 $batch.max_requests = 50
