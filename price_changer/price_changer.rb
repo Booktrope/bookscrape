@@ -32,11 +32,8 @@ $should_run_headless = ($opts.headless) ?  true : false
 
 $BT_CONSTANTS = BTConstants.get_constants
 
-#Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
-#	        :api_key        => $BT_CONSTANTS[:parse_api_key]
-
-Parse.init :application_id => "RIaidI3C8TOI7h6e3HwEItxYGs9RLXxhO0xdkdM6",
-	        :api_key        => "EQVJvWgCKVp4zCc695szDDwyU5lWcO3ssEJzspxd"
+Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
+	        :api_key        => $BT_CONSTANTS[:parse_api_key]
 
 def change_prices_for_amazon(change_hash)
 	class_name = "Price_Changer::Amazon_KDP_Changer"
@@ -122,7 +119,7 @@ def lookup_book_edit_page_url(change_hash, current_asin)
 		books = Watir_harness.browser.trs(:class, "mt-row")
 		books.each do | book |
 			
-			if book.div(:class, "asinText").present? > 0
+			if book.div(:class, "asinText").present? 
 				asin = book.div(:class, "asinText").text.strip.gsub(/\(ASIN: /, "").gsub(/\)$/, "")
 				
 				if change_hash.has_key? asin
@@ -146,8 +143,9 @@ def lookup_book_edit_page_url(change_hash, current_asin)
 			end
 		end
 		#break if change_hash.size <= 0
-		if browser.link(:xpath, "//a[contains(@href, '#next')]").present? > 0
-			browser.link(:xpath, "//a[contains(@href, '#next')]").click
+		if Watir_harness.browser.link(:xpath, "//a[contains(@href, '#next')]").present? 
+			Watir_harness.browser.link(:xpath, "//a[contains(@href, '#next')]").click
+			Watir_harness.browser.div(:class, "mt-loading-overlay").wait_while_present
 			Watir_harness.browser.tr(:class, "mt-row").wait_until_present
 		else
 			done = true 
@@ -395,7 +393,7 @@ def sendEmail(body)
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	top = "Prices Changed for #{Date.today} PST<br />\n<br />\n"
 	email_parameters = {
-		:to      => (!$opts.emailOverride.nil?) ? $opts.emailOverride : 'justin.jeffress@booktrope.com, andy@booktrope.com', #, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
+		:to      => (!$opts.emailOverride.nil?) ? $opts.emailOverride : 'justin.jeffress@booktrope.com, andy@booktrope.com, kelsey@booktrope.com', #, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
 		:from    =>	'"Price Changer" <justin.jeffress@booktrope.com>',
 		:subject => ($debug_parse_query) ? 'Price Changes (DEBUG changes not actually made)' : 'Price Changes',
 		:html    => top + body
@@ -420,12 +418,13 @@ def get_change_hash_for(channel)
 	change_hash = Hash.new
 
 	changelings.each do | changeling |
+	
+		next if channel == PRICE_CHANGE::AMAZON_CHANNEL && ((changeling["isPriceIncrease"] || changeling["isEnd"]) && !is_complete_on_other_channels(changeling["book"], changeling["changeDate"]))
 		next if changeling["book"][changeling["salesChannel"]["controlField"]].nil?
 		puts "#{changeling["changeDate"].value}\t#{changeling["book"][changeling["salesChannel"]["controlField"]]}\t#{changeling["status"]}\t#{changeling["book"]["title"]}\t#{changeling["book"]["author"]}\t#{changeling["price"]}\t#{changeling["isEnd"]}"
 		control_number = changeling["book"][changeling["salesChannel"]["controlField"]]
 	
 		puts "#{changeling["changeDate"].value}\t#{DateTime.parse(change_date)}"
-		puts changeling["changeDate"].value < DateTime.parse(change_date)
 		
 		if changeling["isEnd"] && (changeling["changeDate"].value <= DateTime.parse(Time.now.utc.to_s))
 			change_hash[control_number] = (!change_hash.has_key? control_number || changeling["changeDate"].value < change_hash[control_number]["changeDate"].value) ? changeling : change_hash[control_number]
@@ -454,10 +453,38 @@ def change_prices_for(channel, change_hash)
 	 end
 end
 
+def is_complete_on_other_channels(book, date)
+	result = false
+	changinglings_on_other_channels = Parse::Query.new("PriceChangeQueue").tap do | q |
+		q.eq("book", book)
+		q.eq("changeDate", date)
+		q.not_eq("channelName", AMAZON_CHANNEL)
+		q.eq("status", PRICE_CHANGE::CONFIRMED)
+		q.count = 1
+		q.limit = 0
+	end.get
+	
+	#TODO: if more channels are added we should really execute another query to get how many 
+	#channels there are besides amazon.
+	result = true if changinglings_on_other_channels["count"] == 2
+	
+	return result
+end
+
+def display_books_in_change_hash(change_hash)
+	puts "The following book(s) will be changed:"
+	change_hash.each do | key, value |
+		puts "#{key}\t#{value["book"]["title"]}"
+	end
+end
+
 body = ""
+
 [PRICE_CHANGE::AMAZON_CHANNEL, PRICE_CHANGE::APPLE_CHANNEL, PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
-#[PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
+#[PRICE_CHANGE::AMAZON_CHANNEL].each do | channel |
+#[PRICE_CHANGE::APPLE_CHANNEL, PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
 	change_hash = get_change_hash_for channel
+	display_books_in_change_hash(change_hash) if $debug_mode
 	if change_hash.keys.size > 0 && !$debug_parse_query
 		change_prices_for channel, change_hash
 		body = body +"<h1>#{channel}</h1><br/>\n"+ Mail_helper.alternating_table_body_for_hash_of_parse_objects(change_hash, :col_data => [ "asin" => {:object => "", :field => "asin"}, "Title" => {:object => "book", :field => "title"}, "Author" => {:object => "book", :field => "author"}, "Price" => {:object => "", :field => "price"}, "Status" => {:object => "", :field => "status"}])
