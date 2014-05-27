@@ -74,7 +74,7 @@ def change_prices_for_amazon(change_hash)
 				us_price.clear
 				us_price.send_keys changeling["price"]
 				
-				sleep(10.0)
+				Watir_harness.browser.tr(:class, "pricing-grid-loading-cell").wait_while_present
 				
 				if changeling["price"] < 2.99 || changeling["price"] > 9.99
 					#make sure 35% Royalty
@@ -127,7 +127,7 @@ def lookup_book_edit_page_url(change_hash, current_asin)
 					edit_page_url = book.link(:class => "a-link-normal", :class => "mt-link-content").href
 					
 					puts "#{asin}\t#{edit_page_url}"
-					if change_hash[asin]["book"]["kdpUrl"] == "" || change_hash[asin]["book"]["kdpUrl"]
+					if change_hash[asin]["book"]["kdpUrl"] == "" || change_hash[asin]["book"]["kdpUrl"].nil?
 						change_hash[asin]["book"]["kdpUrl"] = edit_page_url
 						puts "saving kdpUrl #{edit_page_url} for asin #{asin}"
 						change_hash[asin]["book"].save
@@ -200,11 +200,31 @@ def change_prices_for_nook(change_hash)
 			end
 			Watir_harness.browser.text_field(:id, "prices_USD").clear
 			Watir_harness.browser.text_field(:id, "prices_USD").send_keys changeling["price"]
+
+			done = false
+			while !done
+				log.info "sleeping ..."
+				sleep 5.0
+				
+				if Watir_harness.browser.button(:id, "submit_publish_settings_button").present?
+					log.info "present"
+					done = true
+				end
+			end	
 			
-			Watir_harness.browser.button(:id, "submit_publish_settings_button").wait_until_present			
 			Watir_harness.browser.button(:id, "submit_publish_settings_button").click
 			
-			Watir_harness.browser.div(:class => "alert-box", :class => "warning", :class => "squeeze").wait_until_present
+			done = false
+			while !done
+				log.info "sleeping ..."
+				sleep 5.0
+				
+				if Watir_harness.browser.div(:class => "alert-box", :class => "warning", :class => "squeeze").present?
+					log.info "present"
+					done = true
+				end
+			end
+			#Watir_harness.browser.div(:class => "alert-box", :class => "warning", :class => "squeeze").wait_until_present
 			Watir_harness.browser.div(:class => "alert-box", :class => "warning", :class => "squeeze").text.end_with? "Changes can take up to 24 hours to appear on the site."
 			
 			changeling["status"] = PRICE_CHANGE::UNCONFIRMED
@@ -338,6 +358,9 @@ def change_prices_for_apple(change_hash)
 				changeling["status"] = PRICE_CHANGE::UNCONFIRMED
 				changeling.save
 			end
+			
+			Watir_harness.browser.div(:class, "top-heading").a.click
+			Watir_harness.browser.link(:text, "Manage Your Books").click
 		end
 	})
 end
@@ -354,8 +377,10 @@ def update_by_territory(country, currency, price, log)
 			Watir_harness.browser.text_field(:xpath, "//div[@id='editPanel']/div/table/tbody/tr[2]/td[2]/input").set(price)
 			
 			log.info "set price to #{price}"
-			Watir_harness.browser.table(:xpath, "//div[@id='editPanel']/div/table").click
-			log.info "clicked on table"
+			#Watir_harness.browser.table(:xpath, "//div[@id='editPanel']/div/table").when_present.click
+			Watir_harness.browser.text_field(:xpath, "//div[@id='editPanel']/div/table/tbody/tr[2]/td[2]/input").fire_event "onchange"
+			
+			log.info "fire event: onchange"
 					
 			size = Watir_harness.browser.select_list(:id, "pricingPopup").options.size
 			log.info "number of options: #{size}"
@@ -391,19 +416,20 @@ end
 
 def sendEmail(body)
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
-	top = "Prices Changed for #{Date.today} PST<br />\n<br />\n"
+	top = "The following books have had their prices changed for #{Date.today} PST<br />\n<br />\n"
 	email_parameters = {
 		:to      => (!$opts.emailOverride.nil?) ? $opts.emailOverride : 'justin.jeffress@booktrope.com, andy@booktrope.com, kelsey@booktrope.com', #, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
 		:from    =>	'"Price Changer" <justin.jeffress@booktrope.com>',
-		:subject => ($debug_parse_query) ? 'Price Changes (DEBUG changes not actually made)' : 'Price Changes',
+		:subject => ($opts.debug) ? 'Price Changes (DEBUG changes not actually made)' : 'Price Changes',
 		:html    => top + body
 	}
+	#puts body
 	mailgun.messages.send_email(email_parameters)
 end
 
 def get_change_hash_for(channel)
 
-	change_date = add_days(Time.now.utc, 1).to_s
+	change_date = Time.now.utc.to_s #add_days(Time.now.utc, 1).to_s
 	puts change_date
 	changelings = Parse::Query.new("PriceChangeQueue").tap do |q|
 		q.less_eq("changeDate", Parse::Date.new(change_date))
@@ -458,7 +484,7 @@ def is_complete_on_other_channels(book, date)
 	changinglings_on_other_channels = Parse::Query.new("PriceChangeQueue").tap do | q |
 		q.eq("book", book)
 		q.eq("changeDate", date)
-		q.not_eq("channelName", AMAZON_CHANNEL)
+		q.not_eq("channelName", PRICE_CHANGE::AMAZON_CHANNEL)
 		q.eq("status", PRICE_CHANGE::CONFIRMED)
 		q.count = 1
 		q.limit = 0
@@ -478,6 +504,21 @@ def display_books_in_change_hash(change_hash)
 	end
 end
 
+def convert_status_to_code(change_hash)
+	change_hash.each do | key, value |
+		case value["status"]
+		when 0
+			value["status_text"] = "Scheduled"
+		when 25
+			value["status_text"] = "Attempted"
+		when 50
+			value["status_text"] = "Unconfirmed"
+		when 99
+			value["status_text"] = "Confirmed"
+		end
+	end
+end
+
 body = ""
 
 [PRICE_CHANGE::AMAZON_CHANNEL, PRICE_CHANGE::APPLE_CHANNEL, PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
@@ -486,8 +527,9 @@ body = ""
 	change_hash = get_change_hash_for channel
 	display_books_in_change_hash(change_hash) if $debug_mode
 	if change_hash.keys.size > 0 && !$debug_parse_query
+		convert_status_to_code change_hash
 		change_prices_for channel, change_hash
-		body = body +"<h1>#{channel}</h1><br/>\n"+ Mail_helper.alternating_table_body_for_hash_of_parse_objects(change_hash, :col_data => [ "asin" => {:object => "", :field => "asin"}, "Title" => {:object => "book", :field => "title"}, "Author" => {:object => "book", :field => "author"}, "Price" => {:object => "", :field => "price"}, "Status" => {:object => "", :field => "status"}])
+		body = body +"<h1>#{channel}</h1><br/>\n"+ Mail_helper.alternating_table_body_for_hash_of_parse_objects(change_hash, :col_data => [ "asin" => {:object => "", :field => "asin"}, "Title" => {:object => "book", :field => "title"}, "Author" => {:object => "book", :field => "author"}, "Price" => {:object => "", :field => "price"}, "Status" => {:object => "", :field =>"status_text" }, "Status Code" => {:object => "", :field => "status"}])
 	end
 end
 
