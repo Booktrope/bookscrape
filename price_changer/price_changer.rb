@@ -21,7 +21,7 @@ Changes prices of books across our various channels.
    opt :suppressMail, "Suppresses the compeletion email", :short=> 's'
    opt :emailOverride, "Overrides the recipients of the email", :type => :string, :short => 'o'
    opt :headless, "Runs headless", :short => 'h'
-   version "0.0.9 2014 Justin Jeffress"
+   version "0.8.0 2014 Justin Jeffress"
 
 end
 
@@ -390,13 +390,13 @@ def update_by_territory(country, currency, price, log)
 			Watir_harness.browser.table(:xpath, "//div[@id='editPanel']/div/table").click
 						
 			#setting the start date today via the javascript button
-			Watir_harness.browser.text_field(:id, "startdate").when_present.click
+			Watir_harness.browser.text_field(:id, "startdate").when_present.fire_event "onfocus"
 			Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").wait_until_present
 			Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").click
 			log.info "set the start date"
 			
 			#setting the end date to none via the javascript button
-			Watir_harness.browser.text_field(:id, "enddate").when_present.click
+			Watir_harness.browser.text_field(:id, "enddate").when_present.fire_event "onfocus"
 			Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").wait_until_present			
 			Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").click
 			log.info "set the end date"

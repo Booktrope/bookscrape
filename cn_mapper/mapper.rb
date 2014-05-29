@@ -15,6 +15,7 @@ $BT_CONSTANTS = BTConstants.get_constants
 Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
 	        :api_key        => $BT_CONSTANTS[:parse_api_key]
 
+#TODO: create a better way to manage TO/FROM emails
 def send_report_email(body)
 	top = "We were unable to map daily sales data to a book for the following sales records #{Date.today} PST <br /><br />\n"
 	top += "Please add the control numbers below to the corresponding project in teamtrope.<br /><br />"
@@ -102,6 +103,7 @@ def map_sales_data_to_book(book_hash, sales_data_cn, table_name, url)
 	end
 	return not_found
 end
+
 
 def map_no_book_sales_to_book_per_channel(sales_channels_to_map)
 	book_list = Parse::Query.new("Book").tap do | q |
