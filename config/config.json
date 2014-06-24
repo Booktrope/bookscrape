@@ -13,6 +13,10 @@
     "application_id": "urCidOZA5vUUQ57OUnK7fBjHet3Pj34fjhHKY4Vh",
     "api_key": "GsUQth3wtNhKEbdYGr0fzVdVpPPDAPYjmv0bFxj7"
   },
+  "parse-stage": {
+    "application_id": "RIaidI3C8TOI7h6e3HwEItxYGs9RLXxhO0xdkdM6",
+    "api_key": "EQVJvWgCKVp4zCc695szDDwyU5lWcO3ssEJzspxd"
+  },
   "itunes": {
     "url": "https://itunesconnect.apple.com",
     "username": "publisher@booktrope.com",

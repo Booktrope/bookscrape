@@ -9,7 +9,7 @@ require File.join($basePath, "..", "ruby_modules", "bt_logging")
 require File.join($basePath, "..", "ruby_modules", "constants")
 require File.join($basePath, "..", "ruby_modules", "mail_helper")
 
-$BT_CONSTANTS = BTConstants.get_constants
+$BT_CONSTANTS = Booktrope::Constants.instance
 
 Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
 	        :api_key        => $BT_CONSTANTS[:parse_api_key]

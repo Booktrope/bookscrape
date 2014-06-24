@@ -4,12 +4,12 @@ require 'pp'
 basePath = File.absolute_path(File.dirname(__FILE__))
 require File.join(basePath, '..', 'booktrope-modules')
 
-BT_CONSTANTS = BTConstants.get_constants
+BT_CONSTANTS = Booktrope::Constants.instance
 
 Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
 	        :api_key        => BT_CONSTANTS[:parse_api_key]
 
-$client = RJMetricsClient.new( BT_CONSTANTS[:rjmetrics_client_id], BT_CONSTANTS[:rjmetrics_api_key])
+$rjClient = Booktrope::RJHelper.new "booktrope_parse", ["teamtropeId", "parseId"], true
 
 def syncParseBooks(skip)
 
@@ -20,13 +20,11 @@ def syncParseBooks(skip)
 	end.get
 	
 	data = Array.new
-	keys = ["teamtropeId", "parseId"]
 	book_list["results"].each do | book |
 	
 		next if book["teamtropeId"].nil?
 	
 		book_hash = Hash.new
-		book_hash["keys"] = keys
 		book_hash["asin"]    = book["asin"]
 		book_hash["appleId"] = book["appleId"]
 
@@ -59,12 +57,12 @@ def syncParseBooks(skip)
 		book_hash["createdAt"] = book["createdAt"]
 		book_hash["updatedAt"] = book["updatedAt"]
 
-		data.push book_hash
+		$rjClient.add_object! book_hash
 	end
-	
-	$client.pushData "booktrope_parse", data
 	syncParseBooks(skip + 100) if book_list["results"].count == 100
 end
 
 skip = 0
 syncParseBooks skip
+
+$rjClient.pushData if $rjClient.data.count > 0

@@ -14,15 +14,19 @@ Extracts book sales data from Amazon KDP
             ruby amazon_reporter.rb [--dontSaveToParse] [--headless]
    EOS
 
+	opt :testRJMetrics, "Use RJMetrics test", :short => 't'
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
    opt :headless, "Runs headless", :short => 'h'
-   version "1.0.0 2014 Justin Jeffress"
+   version "2.0.0 2014 Justin Jeffress"
 
 end
 
 should_run_headless = ($opts.headless) ?  true : false
+is_test_rj = ($opts.testRJMetrics) ? true : false
 
-$BT_CONSTANTS = BTConstants.get_constants
+$BT_CONSTANTS = Booktrope::Constants.instance
+
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper.AMAZON_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj
 
 class_name = "Salesdata_Extraction::Amazon_reporter"
 results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
@@ -129,6 +133,10 @@ def get_book_hash()
 	return book_hash
 end
 
+def prepare_or_push_data_to_rjmetrics(amazon_sales_data, fields)
+	
+end
+
 def save_sales_data_to_parse(results)
 
 	book_hash = get_book_hash
@@ -174,6 +182,7 @@ def save_sales_data_to_parse(results)
 		amazon_sales_data["dailySales"] = daily_sales
 		
 		amazon_sales_data.save if !$opts.dontSaveToParse
+		prepare_or_push_data_to_rjmetrics(amazon_sales_data) if !$opts.dontSaveToParse
 	end
 end
 
@@ -193,8 +202,10 @@ end
 
 if !results.nil? && results.count > 0
 	#initialize parse
-	Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
-		        :api_key        => $BT_CONSTANTS[:parse_api_key]
+#	Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
+#		        :api_key        => $BT_CONSTANTS[:parse_api_key]
+Parse.init :application_id => "RIaidI3C8TOI7h6e3HwEItxYGs9RLXxhO0xdkdM6",
+	        :api_key        => "EQVJvWgCKVp4zCc695szDDwyU5lWcO3ssEJzspxd"		        
 	save_sales_data_to_parse(results)
 	send_report_email(results)
 end
