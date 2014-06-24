@@ -100,7 +100,7 @@ def send_report_email(results)
 		:html    => top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:units_sold]}.reverse, "Apple ID" => :apple_id, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold, :total => [:units_sold])
 	}
 
-	#mailgun.messages.send_email(email_parameters)
+	mailgun.messages.send_email(email_parameters)
 end
 
 def process_zip_file(zip_path)
