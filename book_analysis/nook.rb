@@ -22,10 +22,25 @@ Extracts book sales data from Nook
 
 end
 
-$BT_CONSTANTS = BTConstants.get_constants
+$BT_CONSTANTS = Booktrope::Constants.instance
 
 Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
 	        :api_key        => $BT_CONSTANTS[:parse_api_key]
+	        
+Booktrope::RJHelper.new Booktrope::RJHelper::NOOK_STATS_TABLE, ["parse_book_id", "crawlDate"], true
+      
+def pushdata_to_rj(nook_stats, fields)
+	return if !nook_stats.has_key? "book" || !nook_stats["book"].nil?
+
+	hash = Hash.new
+	hash["parse_book_id"] = nook_stats["book"].parse_object_id
+	hash["crawlDate"] = nook_stats["crawlDate"].value
+
+	fields.each do | key |
+		hash[key] = nook_stats[key]
+	end
+	$rjClient.add_object! hash if !$opts.dontSaveToRJMetrics
+end
         
 def save_stats(book, bnid, book_price, sales_rank, average_rating, review_count)
 	nook_stats = Parse::Object.new("NookStats")
@@ -38,6 +53,7 @@ def save_stats(book, bnid, book_price, sales_rank, average_rating, review_count)
 	nook_stats["crawlDate"] = Parse::Date.new(Time.now.utc.strftime("%Y/%m/%d %H:%M:%S"))
 	
 	$batch.create_object_run_when_full!(nook_stats)
+	pushdata_to_rj(nook_stats, ["price","salesRank","averageRating","reviewCount"])
 	
 	return true
 end
@@ -276,4 +292,8 @@ end
 $book_group.each_with_index do | list, index |
 	$current_index = index
 	crawl_nook list, unconfirmed_hash
+end
+
+if $rjClient.data.count > 0 
+	puts $rjClient.pushData
 end

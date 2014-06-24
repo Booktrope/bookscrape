@@ -30,7 +30,7 @@ $debug_parse_query = ($debug_mode && $opts.parseQuery) ? true : false;
 
 $should_run_headless = ($opts.headless) ?  true : false
 
-$BT_CONSTANTS = BTConstants.get_constants
+$BT_CONSTANTS = Booktrope::Constants.instance
 
 Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
 	        :api_key        => $BT_CONSTANTS[:parse_api_key]
@@ -311,6 +311,12 @@ def change_prices_for_apple(change_hash)
 			Watir_harness.browser.div(:id, "titleSearch").td(:class, "searchfield").button.click
 			Watir_harness.browser.div(:class, "resultList").link.click
 			sleep(5.0)
+			
+			if !browser.div(:id, "message-not-on-store-status-#{changeling["book"]["appleId"]}-publication").present?
+				changeling["status"] = PRICE_CHANGE::NOT_ON_STORE
+				changeling.save
+				next
+			end
 			
 			#Opening up the rights and pricing page
 			Watir_harness.browser.link(:text, "Rights and Pricing").click

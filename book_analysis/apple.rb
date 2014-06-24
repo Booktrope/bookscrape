@@ -24,6 +24,7 @@ Extracts various meta data from iBooks using the iTunes search api.
    EOS
 
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
+   opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
    
    version "1.0.0 2014 Justin Jeffress"
 
@@ -31,10 +32,15 @@ end
 
 log = Bt_logging.create_logging('Book_analysis::Apple')
 
-$BT_CONSTANTS = BTConstants.get_constants
+$BT_CONSTANTS = Booktrope::Constants.instance
 
-Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
-	        :api_key        => $BT_CONSTANTS[:parse_api_key]
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::APPLE_STATS_TABLE, ["parse_book_id", "crawlDate"], true
+
+#Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
+#	        :api_key        => $BT_CONSTANTS[:parse_api_key]
+	        
+Parse.init :application_id => "RIaidI3C8TOI7h6e3HwEItxYGs9RLXxhO0xdkdM6",
+	        :api_key        => "EQVJvWgCKVp4zCc695szDDwyU5lWcO3ssEJzspxd"
 
 $batch = Parse::Batch.new
 $batch.max_requests = 50
@@ -45,6 +51,19 @@ def book_contains_control_number(book, control_number)
 		result = true
 	end
 	return result
+end
+
+def pushdata_to_rj(appleStats, fields)
+	return if !appleStats.has_key? "book" || !appleStats["book"].nil?
+
+	hash = Hash.new
+	hash["parse_book_id"] = appleStats["book"].parse_object_id
+	hash["crawlDate"] = appleStats["crawlDate"].value
+
+	fields.each do | key |
+		hash[key] = appleStats[key]
+	end
+	$rjClient.add_object! hash if !$opts.dontSaveToRJMetrics
 end
 
 books = Parse::Query.new("Book").tap do |q|
@@ -194,6 +213,7 @@ request_urls.each do | request_url |
 	         appleStats['averageStars'] = averageUserRating.to_f
 	         appleStats['numOfReviews'] = userRatingCount.to_i
 	         appleStats['crawlDate'] = crawl_date
+	         pushdata_to_rj appleStats, ["appleId", "price", "averageStars", "numOfReviews", "crawlDate"] if !$opts.dontSaveToRJMetrics
 	         $batch.create_object_run_when_full!(appleStats) if !$opts.dontSaveToParse
          else
          	#TODO: If we didn't have the apple_id for the book (looked up via epub isbn, we might need to look it up)
@@ -215,7 +235,7 @@ end.get
 
 not_found_hash = Hash.new
 not_found.each do | book |
-	not_found_hash[book["book"]["objectId"]] = book
+	not_found_hash[book["book"]["objectId"]] = book if !book["book"].nil? 
 end
 
 apple_channel = Parse::Query.new("SalesChannel").tap do | q |
@@ -239,4 +259,8 @@ if $batch.requests.length > 0
 	$batch.requests
 	$batch.run!
 	$batch.requests.clear
+end
+
+if $rjClient.data.count > 0 && !$opts.dontSaveToRJMetrics
+	puts $rjClient.pushData
 end

@@ -16,6 +16,8 @@ and parsing the TSV file using ruby CSV. The data is then saved into parse.com
             ruby apple_reporter.rb [--dontSaveToParse] [--headless] -- dropFolder file_path --archiveFolder file_path
    EOS
 
+	opt :testRJMetrics, "Use RJMetrics test", :short => 't'
+	opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
    opt :headless, "Runs headless", :short => 'h'
    opt :downloadFolder, "The archive folder to drop the unzipped file into for posterity", :type => :string, :short => 'd'
@@ -25,11 +27,14 @@ and parsing the TSV file using ruby CSV. The data is then saved into parse.com
 end
 
 should_run_headless = ($opts.headless) ? true : false
+is_test_rj = ($opts.testRJMetrics) ? true : false
 
-$BT_CONSTANTS = BTConstants.get_constants
+$BT_CONSTANTS = Booktrope::Constants.instance
 
 Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
 	        :api_key        => $BT_CONSTANTS[:parse_api_key]
+
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::APPLE_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj
 
 $batch = Parse::Batch.new
 $batch.max_requests = 50
@@ -89,13 +94,13 @@ def send_report_email(results)
 	top = "Apple Sales Numbers for #{results[0][:crawl_date]} PST <br /><br />\n"
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	email_parameters = {
-		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
+		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com', #, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
 		:from    =>	'"Booktrope Daily Crawler 2.0" <justin.jeffress@booktrope.com>',
 		:subject => 'Apple Sales Numbers',
 		:html    => top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:units_sold]}.reverse, "Apple ID" => :apple_id, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold, :total => [:units_sold])
 	}
 
-	mailgun.messages.send_email(email_parameters)
+	#mailgun.messages.send_email(email_parameters)
 end
 
 def process_zip_file(zip_path)
@@ -112,6 +117,21 @@ def process_zip_file(zip_path)
 	FileUtils.rm zip_path
 	csv_to_parse(contents)
 
+end
+
+def pushdata_to_rj(apple_sales_data, fields)
+
+	return if !apple_sales_data.has_key? "book" || !apple_sales_data["book"].nil?
+
+	hash = Hash.new
+	hash["parse_book_id"] = apple_sales_data["book"].parse_object_id
+	hash["crawlDate"] = apple_sales_data["crawlDate"].value
+
+	fields.each do | key |
+		hash[key] = apple_sales_data[key]
+	end
+
+	$rjClient.add_object! hash if !$opts.dontSaveToRJMetrics
 end
 
 def csv_to_parse(contents)
@@ -135,8 +155,10 @@ def csv_to_parse(contents)
 			apple_sales_data["dailySales"] = row_hash[:units_sold].to_i
 			apple_sales_data["country"] = row_hash[:country]
 			apple_sales_data["crawlDate"] = Parse::Date.new(row_hash[:crawl_date])
-
+			
 			$batch.create_object_run_when_full! apple_sales_data if !$opts.dontSaveToParse
+			pushdata_to_rj(apple_sales_data, ["dailySales", "appleId", "country"])
+			
 			puts "#{row["Title"]}\t#{row["Units"]}\t#{row["Country Code"]}\t#{row["Product Type Identifier"]}\t#{row["Begin Date"]}\t#{row["End Date"]}\t#{row["Apple Identifier"]}"
 			results.push row_hash
 		end
@@ -159,4 +181,8 @@ process_download_folder()
 if $batch.requests.length > 0 && !$opts.dontSaveToParse
 	puts $batch.run!
 	$batch.requests.clear
+end
+
+if $rjClient.data.count > 0 && !$opts.dontSaveToRJMetrics
+	puts $rjClient.pushData
 end

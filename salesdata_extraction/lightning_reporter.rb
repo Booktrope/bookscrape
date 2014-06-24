@@ -1,14 +1,9 @@
-#encoding: utf-8
 require 'nokogiri'
 require 'trollop'
-require 'parse-ruby-client'
 require 'mailgun'
 
-basePath = File.absolute_path(File.dirname(__FILE__))
-# linking to custom modules
-require File.join(basePath, "..", "ruby_modules", "constants")
-require File.join(basePath, "..", "ruby_modules", "selenium_harness")
-require File.join(basePath, "..", "ruby_modules", "mail_helper")
+$basePath = File.absolute_path(File.dirname(__FILE__))
+require File.join($basePath, '..', 'booktrope-modules')
 
 $opts = Trollop::options do
 
@@ -19,15 +14,27 @@ Extracts book sales data from Lightning Source
             ruby lightning_reporter.rb [--dontSaveToParse] [--headless]
    EOS
 
+	opt :testRJMetrics, "Use RJMetrics test", :short => 't'
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
    opt :headless, "Runs headless", :short => 'h'
-   version "1.0.0 2014 Justin Jeffress"
+   version "2.0.0 2014 Justin Jeffress"
 
 end
 
 should_run_headless = ($opts.headless) ?  true : false
+is_test_rj = ($opts.testRJMetrics) ? true : false
 
-$BT_CONSTANTS = BTConstants.get_constants
+
+$BT_CONSTANTS = Booktrope::Constants.instance
+
+#initialize parse
+Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
+	        :api_key        => $BT_CONSTANTS[:parse_api_key]
+	        
+$batch = Parse::Batch.new
+$batch.max_requests = 50	        
+
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::LSI_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj
 
 class_name = "Salesdata_Extraction::Lightning_reporter"
 results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
@@ -142,15 +149,22 @@ def save_sales_data_to_parse(results)
 		
 		puts "#{result[:isbn]}\t#{result[:title]}\t#{result[:country]}\t#{result[:net_quantity]}\t#{result[:crawl_date]}"	if $opts.dontSaveToParse
 		
-		if !$opts.dontSaveToParse
-			begin	
-				lightning_data.save
-			rescue Exception => e
-				puts e.message
-			end
-			sleep(5.0)
-		end
+		$batch.create_object_run_when_full! lightning_data if !$opts.dontSaveToParse
+		pushdata_to_rj(lightning_data, ["netSales", "country"])
 	end
+end
+
+def pushdata_to_rj(lightning_data, fields)
+	return if !lightning_data.has_key?("book") || lightning_data["book"].nil?
+
+	hash = Hash.new
+	hash["parse_book_id"] = lightning_data["book"].parse_object_id
+	hash["crawlDate"]     = lightning_data["crawlDate"].value
+
+	fields.each do | key |
+		hash[key] = lightning_data[key]
+	end
+	$rjClient.add_object! hash 
 end
 
 def send_report_email(results)
@@ -158,7 +172,7 @@ def send_report_email(results)
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	email_parameters = {
 		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
-		:from    =>	'"Booktrope Daily Crawler 1.1" <justin.jeffress@booktrope.com>',
+		:from    =>	'"Booktrope Daily Crawler 2.0" <justin.jeffress@booktrope.com>',
 		:subject => 'Lightning Source Sales Numbers',
 		:html    => top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:net_quantity] }.reverse, "ISBN" => :isbn, "Title" => :title, "Country" => :country,  "Daily Sales" => :quantity_sold, "Returned" => :quantity_returned, "Net Sales" => :net_quantity, :total => [:quantity_sold, :quantity_returned, :net_quantity])
 	}
@@ -166,9 +180,15 @@ def send_report_email(results)
 end
 
 if !results.nil? && results.count > 0
-	#initialize parse
-	Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
-		        :api_key        => $BT_CONSTANTS[:parse_api_key]
 	save_sales_data_to_parse(results)
 	send_report_email(results)
+end
+
+if $batch.requests.length > 0 && !$opts.dontSaveToParse
+	puts $batch.run!
+	$batch.requests.clear
+end
+
+if $rjClient.data.count > 0 #&& !$opts.dontSaveToRJMetrics
+	puts $rjClient.pushData
 end

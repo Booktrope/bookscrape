@@ -17,13 +17,13 @@ opts = Trollop::options do
 Pulls data from Amazon
 
    Usage:
-            ruby bookDropAmazonPickUp.rb [--dontSaveToParse]
+            ruby amazon.rb [--dontSaveToParse]
    EOS
 
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
+   #opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
    opt :pathToHtmlFiles, "The path to save the html files that are captured if an extracted value is not found.", :type => :string, :short => 'p'
    version "1.0.0 2014 Justin Jeffress"
-
 end
 
 
@@ -157,6 +157,8 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 			crawl_object['got_price'] = price_get
 
 			crawl_object['book'] = book_object
+			
+			pushdata_to_rj(crawl_object, ["sales_rank","kindle_price","num_of_reviews","average_stars","crawl_date","got_price"])
 			begin
 				#crawl_object.save
 				$batch.create_object_run_when_full! crawl_object
@@ -196,6 +198,19 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 	sleep(1.0)
 end
 
+def pushdata_to_rj(amazonStats, fields)
+	return if !amazonStats.has_key? "book" || !amazonStats["book"].nil?
+
+	hash = Hash.new
+	hash["parse_book_id"] = amazonStats["book"].parse_object_id
+	hash["crawlDate"]     = amazonStats["crawl_date"].value
+
+	fields.each do | key |
+		hash[key] = amazonStats[key]
+	end
+	$rjClient.add_object! hash 
+end
+
 
 $config_dir = File.join(basePath, "config")
 workingPath = !opts.pathToHtmlFiles.nil? && opts.pathToHtmlFiles.strip != "" ? opts.pathToHtmlFiles : basePath 
@@ -209,15 +224,21 @@ Dir.mkdir($cron_dir) unless File.exists?($cron_dir)
 
 shouldSaveToParse = opts.dontSaveToParse ? false : true;
 
-BT_CONSTANTS = BTConstants.get_constants
+BT_CONSTANTS = Booktrope::Constants.instance
+
 Amazon::Ecs.options = {
 :associate_tag     => BT_CONSTANTS[:amazon_ecs_associate_tag],
 :AWS_access_key_id => BT_CONSTANTS[:amazon_ecs_access_key_id],
 :AWS_secret_key    => BT_CONSTANTS[:amazon_ecs_secret_key]
 }
 
-Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
-	        :api_key        => BT_CONSTANTS[:parse_api_key]
+#Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
+#	        :api_key        => BT_CONSTANTS[:parse_api_key]
+	        
+Parse.init :application_id => "RIaidI3C8TOI7h6e3HwEItxYGs9RLXxhO0xdkdM6",
+	        :api_key        => "EQVJvWgCKVp4zCc695szDDwyU5lWcO3ssEJzspxd"
+	        
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::AMAZON_STATS_TABLE, ["parse_book_id", "crawlDate"], true
 
 $batch = Parse::Batch.new
 $batch.max_requests = 50
@@ -277,4 +298,8 @@ if $batch.requests.length > 0
 	$batch.requests
 	$batch.run!
 	$batch.requests.clear
+end
+
+if $rjClient.data.count > 0 
+	puts $rjClient.pushData
 end
