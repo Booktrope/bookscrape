@@ -21,7 +21,7 @@ Changes prices of books across our various channels.
    opt :suppressMail, "Suppresses the compeletion email", :short=> 's'
    opt :emailOverride, "Overrides the recipients of the email", :type => :string, :short => 'o'
    opt :headless, "Runs headless", :short => 'h'
-   version "0.8.0 2014 Justin Jeffress"
+   version "1.0.0 2014 Justin Jeffress"
 
 end
 
@@ -50,7 +50,7 @@ def change_prices_for_amazon(change_hash)
 		
 		#changing prices
 		change_hash.each do | key, changeling |
-			changeling["status"] = PRICE_CHANGE::ATTEMPTED
+			changeling["status"] = Booktrope::PRICE_CHANGE::ATTEMPTED
 			changeling.save
 			
 			edit_page_url = changeling["book"]["kdpUrl"]
@@ -97,7 +97,7 @@ def change_prices_for_amazon(change_hash)
 				
 				sleep(35.0)
 				Watir_harness.browser.button(:class, "a-button-input").wait_until_present
-				changeling["status"] = PRICE_CHANGE::UNCONFIRMED
+				changeling["status"] = Booktrope::PRICE_CHANGE::UNCONFIRMED
 				changeling.save
 				Watir_harness.browser.button(:class, "a-button-input").click
 				
@@ -175,7 +175,7 @@ def change_prices_for_nook(change_hash)
 		Watir_harness.browser.button(:id, "login_button").click
 
 		change_hash.each do | key, changeling |
-			changeling["status"] = PRICE_CHANGE::ATTEMPTED
+			changeling["status"] = Booktrope::PRICE_CHANGE::ATTEMPTED
 			changeling.save
 			
 			edit_page_url = changeling["book"]["nookUrl"]
@@ -227,7 +227,7 @@ def change_prices_for_nook(change_hash)
 			#Watir_harness.browser.div(:class => "alert-box", :class => "warning", :class => "squeeze").wait_until_present
 			Watir_harness.browser.div(:class => "alert-box", :class => "warning", :class => "squeeze").text.end_with? "Changes can take up to 24 hours to appear on the site."
 			
-			changeling["status"] = PRICE_CHANGE::UNCONFIRMED
+			changeling["status"] = Booktrope::PRICE_CHANGE::UNCONFIRMED
 			changeling.save
 			sleep(1.0)
 		end
@@ -302,7 +302,7 @@ def change_prices_for_apple(change_hash)
 		Watir_harness.browser.link(:text, "Manage Your Books").click
 		
 		change_hash.each do | key, changeling |
-			changeling["status"] = PRICE_CHANGE::ATTEMPTED
+			changeling["status"] = Booktrope::PRICE_CHANGE::ATTEMPTED
 			changeling.save
 			
 			apple_id_input = Watir_harness.browser.td(:id, "search-param-value-appleId").text_field.set(changeling["book"]["appleId"])
@@ -313,7 +313,7 @@ def change_prices_for_apple(change_hash)
 			sleep(5.0)
 			
 			if !browser.div(:id, "message-not-on-store-status-#{changeling["book"]["appleId"]}-publication").present?
-				changeling["status"] = PRICE_CHANGE::NOT_ON_STORE
+				changeling["status"] = Booktrope::PRICE_CHANGE::NOT_ON_STORE
 				changeling.save
 				next
 			end
@@ -353,7 +353,7 @@ def change_prices_for_apple(change_hash)
 				Watir_harness.browser.button(:class, "doneActionButton").wait_until_present
 				Watir_harness.browser.button(:class, "doneActionButton").click
 			
-				changeling["status"] = PRICE_CHANGE::UNCONFIRMED
+				changeling["status"] = Booktrope::PRICE_CHANGE::UNCONFIRMED
 				changeling.save
 			else
 				territory_hash = {"United States" => :usd, "Canada" => :cad, "United Kingdom" => :gbp, "Australia" => :aud}
@@ -361,7 +361,7 @@ def change_prices_for_apple(change_hash)
 					update_by_territory country, currency, changeling["price"], log
 					#might need to add a #wait_until_present
 				end
-				changeling["status"] = PRICE_CHANGE::UNCONFIRMED
+				changeling["status"] = Booktrope::PRICE_CHANGE::UNCONFIRMED
 				changeling.save
 			end
 			
@@ -439,7 +439,7 @@ def get_change_hash_for(channel)
 	puts change_date
 	changelings = Parse::Query.new("PriceChangeQueue").tap do |q|
 		q.less_eq("changeDate", Parse::Date.new(change_date))
-		q.less_eq("status", PRICE_CHANGE::ATTEMPTED)
+		q.less_eq("status", Booktrope::PRICE_CHANGE::ATTEMPTED)
 		q.order_by ="changeDate"
 		q.in_query("salesChannel", Parse::Query.new("SalesChannel").tap do | inner_query |
 			inner_query.eq("name", channel)
@@ -451,7 +451,7 @@ def get_change_hash_for(channel)
 
 	changelings.each do | changeling |
 	
-		next if channel == PRICE_CHANGE::AMAZON_CHANNEL && ((changeling["isPriceIncrease"] || changeling["isEnd"]) && !is_complete_on_other_channels(changeling["book"], changeling["changeDate"]))
+		next if channel == Booktrope::PRICE_CHANGE::AMAZON_CHANNEL && ((changeling["isPriceIncrease"] || changeling["isEnd"]) && !is_complete_on_other_channels(changeling["book"], changeling["changeDate"]))
 		next if changeling["book"][changeling["salesChannel"]["controlField"]].nil?
 		puts "#{changeling["changeDate"].value}\t#{changeling["book"][changeling["salesChannel"]["controlField"]]}\t#{changeling["status"]}\t#{changeling["book"]["title"]}\t#{changeling["book"]["author"]}\t#{changeling["price"]}\t#{changeling["isEnd"]}"
 		control_number = changeling["book"][changeling["salesChannel"]["controlField"]]
@@ -473,13 +473,13 @@ end
 
 def change_prices_for(channel, change_hash)
 	 case channel
-	 	when PRICE_CHANGE::AMAZON_CHANNEL
+	 	when Booktrope::PRICE_CHANGE::AMAZON_CHANNEL
 	 		puts "Amazon"
 	 		change_prices_for_amazon(change_hash)
-	 	when PRICE_CHANGE::APPLE_CHANNEL
+	 	when Booktrope::PRICE_CHANGE::APPLE_CHANNEL
 	 		puts "Apple"
 	 		change_prices_for_apple(change_hash)
-	 	when PRICE_CHANGE::NOOK_CHANNEL
+	 	when Booktrope::PRICE_CHANGE::NOOK_CHANNEL
 	 		puts "Nook"
 	 		change_prices_for_nook(change_hash)
 	 end
@@ -490,8 +490,8 @@ def is_complete_on_other_channels(book, date)
 	changinglings_on_other_channels = Parse::Query.new("PriceChangeQueue").tap do | q |
 		q.eq("book", book)
 		q.eq("changeDate", date)
-		q.not_eq("channelName", PRICE_CHANGE::AMAZON_CHANNEL)
-		q.eq("status", PRICE_CHANGE::CONFIRMED)
+		q.not_eq("channelName", Booktrope::PRICE_CHANGE::AMAZON_CHANNEL)
+		q.eq("status", Booktrope::PRICE_CHANGE::CONFIRMED)
 		q.count = 1
 		q.limit = 0
 	end.get
@@ -527,9 +527,9 @@ end
 
 body = ""
 
-[PRICE_CHANGE::AMAZON_CHANNEL, PRICE_CHANGE::APPLE_CHANNEL, PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
-#[PRICE_CHANGE::AMAZON_CHANNEL].each do | channel |
-#[PRICE_CHANGE::APPLE_CHANNEL, PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
+[Booktrope::PRICE_CHANGE::AMAZON_CHANNEL, Booktrope::PRICE_CHANGE::APPLE_CHANNEL, Booktrope::PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
+#[Booktrope::PRICE_CHANGE::AMAZON_CHANNEL].each do | channel |
+#[Booktrope::PRICE_CHANGE::APPLE_CHANNEL, Booktrope::PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
 	change_hash = get_change_hash_for channel
 	display_books_in_change_hash(change_hash) if $debug_mode
 	if change_hash.keys.size > 0 && !$debug_parse_query
