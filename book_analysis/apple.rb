@@ -20,28 +20,26 @@ $opts = Trollop::options do
 Extracts various meta data from iBooks using the iTunes search api.
 
    Usage:
-            ruby apple.rb [--dontSaveToParse]
+            ruby apple.rb [--dontSaveToParse] --testRJMetrics --dontSaveToParse --dontSaveToRJMetrics
    EOS
-
-   opt :dontSaveToParse, "Turns off parse", :short => 'x'
-   opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
    
-   version "1.0.0 2014 Justin Jeffress"
+   opt :testRJMetrics, "Use RJMetrics test sandbox. This option will save to the sandbox.", :short => 't'
+   opt :dontSaveToParse, "Prevents the collected data from being saved to parse.", :short => 'x'
+   opt :dontSaveToRJMetrics, "Turns of RJMetrics entirely. Data wont be saved to either the sandbox or live.", :short => 'r'
+   
+   version "1.1.0 2014 Justin Jeffress"
 
 end
 
 log = Bt_logging.create_logging('Book_analysis::Apple')
 
 $BT_CONSTANTS = Booktrope::Constants.instance
+is_test_rj = ($opts.testRJMetrics) ? true : false
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::APPLE_STATS_TABLE, ["parse_book_id", "crawlDate"], is_test_rj
 
-$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::APPLE_STATS_TABLE, ["parse_book_id", "crawlDate"], true
-
-#Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
-#	        :api_key        => $BT_CONSTANTS[:parse_api_key]
+Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
+	        :api_key        => $BT_CONSTANTS[:parse_api_key]
 	        
-Parse.init :application_id => "RIaidI3C8TOI7h6e3HwEItxYGs9RLXxhO0xdkdM6",
-	        :api_key        => "EQVJvWgCKVp4zCc695szDDwyU5lWcO3ssEJzspxd"
-
 $batch = Parse::Batch.new
 $batch.max_requests = 50
 

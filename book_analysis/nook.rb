@@ -13,12 +13,14 @@ Extracts book sales data from Nook
    Usage:
             ruby nook_watir.rb [--dontSaveToParse] [--headless] [--marshalFile file_name]
    EOS
-
+   
+   opt :testRJMetrics, "Use RJMetrics test sandbox. This option will save to the sandbox.", :short => 't'
+   opt :dontSaveToRJMetrics, "Turns of RJMetrics entirely. Data wont be saved to either the sandbox or live.", :short => 'r'
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
    opt :headless, "Runs headless", :short => 'h'
    opt :marshalFile, "Runs the script based on a marshal file.", :type => :string, :short => 'y'
    opt :groupCount, "The number to group the books into.", :type => :integer, :default => 50, :short => 'g'
-   version "1.0.0 2014 Justin Jeffress"
+   version "1.1.0 2014 Justin Jeffress"
 
 end
 
@@ -26,8 +28,9 @@ $BT_CONSTANTS = Booktrope::Constants.instance
 
 Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
 	        :api_key        => $BT_CONSTANTS[:parse_api_key]
-	        
-Booktrope::RJHelper.new Booktrope::RJHelper::NOOK_STATS_TABLE, ["parse_book_id", "crawlDate"], true
+
+is_test_rj = ($opts.testRJMetrics) ? true : false	        
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::NOOK_STATS_TABLE, ["parse_book_id", "crawlDate"], is_test_rj
       
 def pushdata_to_rj(nook_stats, fields)
 	return if !nook_stats.has_key? "book" || !nook_stats["book"].nil?

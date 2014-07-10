@@ -3,8 +3,20 @@
 # Version 1.0
 require 'singleton'
 require 'json'
-
+ 
 module Booktrope
+
+	class PRICE_CHANGE
+		SCHEDULED   = 0
+		ATTEMPTED   = 25
+		UNCONFIRMED = 50
+		CONFIRMED   = 99
+		NOT_ON_STORE = 404
+		AMAZON_CHANNEL = "Amazon"
+		APPLE_CHANNEL  = "Apple"
+		NOOK_CHANNEL   = "Nook"
+	end
+
    class Constants < Hash
    	include Singleton
    	
@@ -13,6 +25,7 @@ module Booktrope
    	ECS_ASSOCIATE_TAG = "associate_tag"
    	ECS_ACCESS_KEY_ID = "access_key_id"
    	ECS_SECRET_KEY = "secret_key"
+   	GOOGLE_PLAY = "google-play"
    	PARSE = "parse"
    	PARSE_STAGE = "parse-stage"
    	PARSE_APP_KEY = "application_id"
@@ -51,6 +64,10 @@ module Booktrope
 	   	self[:amazon_kdp_url]      = config_json[AMAZON_KDP][URL]
 	   	self[:amazon_kdp_username] = config_json[AMAZON_KDP][USERNAME]
 	   	self[:amazon_kdp_password] = config_json[AMAZON_KDP][PASSWORD]
+	   	
+	   	self[:google_play_url]      = config_json[GOOGLE_PLAY][URL]
+	   	self[:google_play_username] = config_json[GOOGLE_PLAY][USERNAME]
+	   	self[:google_play_password] = config_json[GOOGLE_PLAY][PASSWORD]
 		
 	   	self[:parse_application_id] = config_json[PARSE][PARSE_APP_KEY]
 	   	self[:parse_api_key]        = config_json[PARSE][PARSE_API_KEY]

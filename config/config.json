@@ -9,6 +9,11 @@
     "username": "production@booktrope.com",
     "password": "LibertarybecameBooktropein2010"
   },
+  "google-play": {
+    "url": "https://play.google.com/books",
+    "username": "production@booktrope.com",
+    "password": "LibertarybecameBooktropein2010"
+  },
   "parse": {
     "application_id": "urCidOZA5vUUQ57OUnK7fBjHet3Pj34fjhHKY4Vh",
     "api_key": "GsUQth3wtNhKEbdYGr0fzVdVpPPDAPYjmv0bFxj7"
