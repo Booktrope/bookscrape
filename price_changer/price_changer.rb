@@ -179,7 +179,6 @@ def change_prices_for_nook(change_hash)
 			changeling.save
 			
 			edit_page_url = changeling["book"]["nookUrl"]
-			
 			if edit_page_url.nil? || edit_page_url == ""
 				edit_page_url = nook_lookup_book_edit_page_url(change_hash, changeling["book"]["bnid"])
 			end
@@ -224,7 +223,7 @@ def change_prices_for_nook(change_hash)
 					done = true
 				end
 			end
-			#Watir_harness.browser.div(:class => "alert-box", :class => "warning", :class => "squeeze").wait_until_present
+			Watir_harness.browser.div(:class => "alert-box", :class => "warning", :class => "squeeze").wait_until_present
 			Watir_harness.browser.div(:class => "alert-box", :class => "warning", :class => "squeeze").text.end_with? "Changes can take up to 24 hours to appear on the site."
 			
 			changeling["status"] = Booktrope::PRICE_CHANGE::UNCONFIRMED
@@ -239,6 +238,17 @@ def nook_lookup_book_edit_page_url(change_hash, current_id)
 	result = ""
 	nook_url_list = Array.new
 	
+	book_list = Parse::Query.new("Book").tap do | q |
+		q.exists("nookUrl")
+		q.not_eq("nookUrl", "")
+		q.limit = 1000
+	end.get
+
+	nook_edit_hash = Hash.new
+	book_list.each do | book |
+		nook_edit_hash[book["nookUrl"]] = 1
+	end
+
 	#loop until we've reached the last index page of books. 
 	while(!done)
 		Watir_harness.browser.table(:class, "project-list").wait_until_present
@@ -253,14 +263,17 @@ def nook_lookup_book_edit_page_url(change_hash, current_id)
 		next_button = Watir_harness.browser.li(:class, "next_page")
 		
 		if next_button.class_name.include? "disabled"
+			puts "done"
 			done = true
 		else
+			puts "click next"
 			next_button.link(:css, "a").click
 		end
 	end
-	
+
 	#looking up the bnid and epub isbn for the book.
 	nook_url_list.each do | nook_url |
+		next if nook_edit_hash.has_key? nook_url
 		Watir_harness.browser.goto(nook_url)
 		
 		nook_id = Watir_harness.browser.p(:css, "div.row div.project-body.columns p").text.strip.gsub(/B&N Identifier:/,"").gsub(/\s/,"")
@@ -312,7 +325,7 @@ def change_prices_for_apple(change_hash)
 			Watir_harness.browser.div(:class, "resultList").link.click
 			sleep(5.0)
 			
-			if !browser.div(:id, "message-not-on-store-status-#{changeling["book"]["appleId"]}-publication").present?
+			if !Watir_harness.browser.div(:id, "message-not-on-store-status-#{changeling["book"]["appleId"]}-publication").present?
 				changeling["status"] = Booktrope::PRICE_CHANGE::NOT_ON_STORE
 				changeling.save
 				next
@@ -377,23 +390,24 @@ def update_by_territory(country, currency, price, log)
 		if country == territory.tds[0].text
 			territory.tds[0].click
 						
-			Watir_harness.browser.text_field(:xpath, "//div[@id='editPanel']/div/table/tbody/tr[2]/td[2]/input").wait_until_present
-			Watir_harness.browser.text_field(:xpath, "//div[@id='editPanel']/div/table/tbody/tr[2]/td[2]/input").clear
+			Watir_harness.browser.text_field(:id, "srpSubmit").wait_until_present
+			Watir_harness.browser.text_field(:id, "srpSubmit").clear
 			price = price.in(:usd).in(currency).to_s(:plain) if currency != :usd
-			Watir_harness.browser.text_field(:xpath, "//div[@id='editPanel']/div/table/tbody/tr[2]/td[2]/input").set(price)
+			Watir_harness.browser.text_field(:id, "srpSubmit").set(price)
 			
 			log.info "set price to #{price}"
 			#Watir_harness.browser.table(:xpath, "//div[@id='editPanel']/div/table").when_present.click
-			Watir_harness.browser.text_field(:xpath, "//div[@id='editPanel']/div/table/tbody/tr[2]/td[2]/input").fire_event "onchange"
-			
+			Watir_harness.browser.text_field(:id, "srpSubmit").fire_event "onchange"
 			log.info "fire event: onchange"
 					
 			size = Watir_harness.browser.select_list(:id, "pricingPopup").options.size
 			log.info "number of options: #{size}"
 			
 			Watir_harness.browser.select_list(:id, "pricingPopup").options[size-1].select
-			log.info "select the last item"
-			Watir_harness.browser.table(:xpath, "//div[@id='editPanel']/div/table").click
+			log.info "selected the last item"
+
+			#Watir_harness.browser.select_list(:id, "pricingPopup").fire_event "onSuccess"
+			Watir_harness.browser.span(:id, "TierUpdateContainer").click
 						
 			#setting the start date today via the javascript button
 			Watir_harness.browser.text_field(:id, "startdate").when_present.fire_event "onfocus"
@@ -406,8 +420,18 @@ def update_by_territory(country, currency, price, log)
 			Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").wait_until_present			
 			Watir_harness.browser.button(:class, "ui-datepicker-nonebtn").click
 			log.info "set the end date"
-						
-			Watir_harness.browser.button(:xpath, "//div[@id='editPanel']/div[3]/input[2]").click
+			
+			Watir_harness.browser.img(:id, "lightboxSaveButtonEnabled").click
+			
+			if Watir_harness.browser.div(:class => "lcAjaxLightboxMessages", :class => "error").present?
+				size = Watir_harness.browser.select_list(:id, "pricingPopup").options.size
+				log.info "number of options: #{size}"
+			
+				Watir_harness.browser.select_list(:id, "pricingPopup").options[size-1].select
+				log.info "selected the last item"
+				Watir_harness.browser.img(:id, "lightboxSaveButtonEnabled").click
+			end
+			
 			log.info "hit the save button"
 			break
 		end
@@ -530,6 +554,7 @@ body = ""
 [Booktrope::PRICE_CHANGE::AMAZON_CHANNEL, Booktrope::PRICE_CHANGE::APPLE_CHANNEL, Booktrope::PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
 #[Booktrope::PRICE_CHANGE::AMAZON_CHANNEL].each do | channel |
 #[Booktrope::PRICE_CHANGE::APPLE_CHANNEL, Booktrope::PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
+#[Booktrope::PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
 	change_hash = get_change_hash_for channel
 	display_books_in_change_hash(change_hash) if $debug_mode
 	if change_hash.keys.size > 0 && !$debug_parse_query
