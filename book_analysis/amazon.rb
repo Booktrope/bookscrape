@@ -11,7 +11,7 @@ basePath = File.absolute_path(File.dirname(__FILE__))
 # linking to custom modules
 require File.join(basePath, '..', 'booktrope-modules')
 
-opts = Trollop::options do
+$opts = Trollop::options do
 
    banner <<-EOS
 Pulls data from Amazon
@@ -21,7 +21,8 @@ Pulls data from Amazon
    EOS
 
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
-   #opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
+   opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
+   opt :testRJMetrics, "Use RJMetrics test sandbox. This option will save to the sandbox.", :short => 't'
    opt :pathToHtmlFiles, "The path to save the html files that are captured if an extracted value is not found.", :type => :string, :short => 'p'
    version "1.0.0 2014 Justin Jeffress"
 end
@@ -208,12 +209,12 @@ def pushdata_to_rj(amazonStats, fields)
 	fields.each do | key |
 		hash[key] = amazonStats[key]
 	end
-	$rjClient.add_object! hash 
+	$rjClient.add_object! hash if !$opts.dontSaveToRJMetrics
 end
 
 
 $config_dir = File.join(basePath, "config")
-workingPath = !opts.pathToHtmlFiles.nil? && opts.pathToHtmlFiles.strip != "" ? opts.pathToHtmlFiles : basePath 
+workingPath = !$opts.pathToHtmlFiles.nil? && $opts.pathToHtmlFiles.strip != "" ? $opts.pathToHtmlFiles : basePath 
 
 $log_dir    = File.join(workingPath, "missing_log")
 $cron_dir   = File.join(workingPath, "cron_log")
@@ -222,7 +223,7 @@ $cron_dir   = File.join(workingPath, "cron_log")
 Dir.mkdir($log_dir) unless File.exists?($log_dir)
 Dir.mkdir($cron_dir) unless File.exists?($cron_dir)
 
-shouldSaveToParse = opts.dontSaveToParse ? false : true;
+shouldSaveToParse = $opts.dontSaveToParse ? false : true;
 
 BT_CONSTANTS = Booktrope::Constants.instance
 
@@ -237,12 +238,12 @@ Amazon::Ecs.options = {
 	        
 Parse.init :application_id => "RIaidI3C8TOI7h6e3HwEItxYGs9RLXxhO0xdkdM6",
 	        :api_key        => "EQVJvWgCKVp4zCc695szDDwyU5lWcO3ssEJzspxd"
-	        
-$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::AMAZON_STATS_TABLE, ["parse_book_id", "crawlDate"], true
+
+is_test_rj = ($opts.testRJMetrics) ? true : false	        
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::AMAZON_STATS_TABLE, ["parse_book_id", "crawlDate"], is_test_rj
 
 $batch = Parse::Batch.new
 $batch.max_requests = 50
-
 
 changelings = Parse::Query.new("PriceChangeQueue").tap do |q|
 	q.limit = 1000
