@@ -233,11 +233,11 @@ Amazon::Ecs.options = {
 :AWS_secret_key    => BT_CONSTANTS[:amazon_ecs_secret_key]
 }
 
-#Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
-#	        :api_key        => BT_CONSTANTS[:parse_api_key]
+Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
+	        :api_key        => BT_CONSTANTS[:parse_api_key]
 	        
-Parse.init :application_id => "RIaidI3C8TOI7h6e3HwEItxYGs9RLXxhO0xdkdM6",
-	        :api_key        => "EQVJvWgCKVp4zCc695szDDwyU5lWcO3ssEJzspxd"
+#Parse.init :application_id => "RIaidI3C8TOI7h6e3HwEItxYGs9RLXxhO0xdkdM6",
+#	        :api_key        => "EQVJvWgCKVp4zCc695szDDwyU5lWcO3ssEJzspxd"
 
 is_test_rj = ($opts.testRJMetrics) ? true : false	        
 $rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::AMAZON_STATS_TABLE, ["parse_book_id", "crawlDate"], is_test_rj

@@ -228,9 +228,9 @@ def get_change_queue
 
 	change_queue = Parse::Query.new("PriceChangeQueue").tap do |q|
 		q.limit = 1000
-		q.eq("status", PRICE_CHANGE::UNCONFIRMED) 
+		q.eq("status", Booktrope::PRICE_CHANGE::UNCONFIRMED) 
 		q.in_query("salesChannel", Parse::Query.new("SalesChannel").tap do | inner_query |
-			inner_query.eq("name", PRICE_CHANGE::NOOK_CHANNEL)
+			inner_query.eq("name", Booktrope::PRICE_CHANGE::NOOK_CHANNEL)
 		end)
 		q.include = "book,salesChannel"
 	end.get

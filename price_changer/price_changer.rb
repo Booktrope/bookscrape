@@ -325,11 +325,11 @@ def change_prices_for_apple(change_hash)
 			Watir_harness.browser.div(:class, "resultList").link.click
 			sleep(5.0)
 			
-			if !Watir_harness.browser.div(:id, "message-not-on-store-status-#{changeling["book"]["appleId"]}-publication").present?
-				changeling["status"] = Booktrope::PRICE_CHANGE::NOT_ON_STORE
-				changeling.save
-				next
-			end
+			#if !Watir_harness.browser.div(:id, "message-not-on-store-status-#{changeling["book"]["appleId"]}-publication").present?
+			#	changeling["status"] = Booktrope::PRICE_CHANGE::NOT_ON_STORE
+			#	changeling.save
+			#	next
+			#end
 			
 			#Opening up the rights and pricing page
 			Watir_harness.browser.link(:text, "Rights and Pricing").click
@@ -388,8 +388,9 @@ def update_by_territory(country, currency, price, log)
 	territories = Watir_harness.browser.div(:class, "resultList").table(:class => "main", :class => "content-status", :class => "vpp").trs
 	territories.each do | territory |
 		if country == territory.tds[0].text
+			log.info country
 			territory.tds[0].click
-						
+			sleep 5.0
 			Watir_harness.browser.text_field(:id, "srpSubmit").wait_until_present
 			Watir_harness.browser.text_field(:id, "srpSubmit").clear
 			price = price.in(:usd).in(currency).to_s(:plain) if currency != :usd
@@ -422,6 +423,7 @@ def update_by_territory(country, currency, price, log)
 			log.info "set the end date"
 			
 			Watir_harness.browser.img(:id, "lightboxSaveButtonEnabled").click
+			sleep 5.0
 			
 			if Watir_harness.browser.div(:class => "lcAjaxLightboxMessages", :class => "error").present?
 				size = Watir_harness.browser.select_list(:id, "pricingPopup").options.size
@@ -430,6 +432,7 @@ def update_by_territory(country, currency, price, log)
 				Watir_harness.browser.select_list(:id, "pricingPopup").options[size-1].select
 				log.info "selected the last item"
 				Watir_harness.browser.img(:id, "lightboxSaveButtonEnabled").click
+				sleep 5.0
 			end
 			
 			log.info "hit the save button"

@@ -73,9 +73,9 @@ end.get
 unconfirmed_hash = Hash.new
 change_queue = Parse::Query.new("PriceChangeQueue").tap do |q|
 	q.limit = 1000
-	q.eq("status", PRICE_CHANGE::UNCONFIRMED) 
+	q.eq("status", Booktrope::PRICE_CHANGE::UNCONFIRMED) 
 	q.in_query("salesChannel", Parse::Query.new("SalesChannel").tap do | inner_query |
-		inner_query.eq("name", PRICE_CHANGE::APPLE_CHANNEL)
+		inner_query.eq("name", Booktrope::PRICE_CHANGE::APPLE_CHANNEL)
 	end)
 	q.include = "book,salesChannel"
 end.get
@@ -178,7 +178,7 @@ request_urls.each do | request_url |
 	         	#Confirming that price_changer.rb has properly changed the price of the book.
 	         	if unconfirmed_hash[book]["price"] == price
 	         		log.info "CONFIRMED: Expected: #{unconfirmed_hash[book]["price"]} Actual: #{price}"
-		         	unconfirmed_hash[book]["status"] = PRICE_CHANGE::CONFIRMED
+		         	unconfirmed_hash[book]["status"] = Booktrope::PRICE_CHANGE::CONFIRMED
 		         	#Don't batch these up since we dont do these often and status is time 
 	   	      	#sensitive so we want to know as soon as it's confirmed.
 	      	   	unconfirmed_hash[book].save #if !$opts.dontSaveToParse 

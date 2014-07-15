@@ -18,7 +18,7 @@ module Booktrope
 		NOOK_STATS_TABLE        = "nook_stats_data"
 		LSI_SALES_TABLE         = "lsi_sales_data"
 		CREATESPACE_SALES_TABLE = "createspace_sales_data"
-		
+		GOOGLE_PLAY_STATS_TABLE = "google_play_stats_data"
 		
 		def initialize(table_name, keys, is_sandbox = false)
 		
