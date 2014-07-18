@@ -21,7 +21,7 @@ def send_report_email(body)
 	top += "Please add the control numbers below to the corresponding project in teamtrope.<br /><br />"
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	email_parameters = {
-		:to      => 'Justin Jeffress <justin.jeffress@booktrope.com>, Andy Roberts <andy@booktrope.com>, Heather Ludviksson <heather.ludviksson@booktrope.com>, Kelsey Wong <kelsey@booktrope.com>',
+		:to      => 'Justin Jeffress <justin.jeffress@booktrope.com>, Andy Roberts <andy@booktrope.com>, Adam Bodendieck <adam.bodendieck@booktrope.com>, Kelsey Wong <kelsey@booktrope.com>',
 		:from    =>	'"Booktrope Mapper" <justin.jeffress@booktrope.com>',
 		:subject => 'Unable to Map Sales Data to Book',
 		:html    => top + body
@@ -93,7 +93,9 @@ def map_sales_data_to_book(book_hash, sales_data_cn, table_name, url)
 			batch.update_object_run_when_full! ls_stat
 		else
 			puts "Not found: #{isbn} class: #{isbn.class}"
-			not_found.push({:cn => isbn , :url => url.gsub(/\{0\}/, (isbn_10 != "") ? isbn_10.to_s : isbn.to_s)})
+			not_found.push({:cn => isbn ,
+			 :url => url.gsub(/\{0\}/, (isbn_10 != "") ? isbn_10.to_s : isbn.to_s),
+			 :object_id => ls_stat.parse_object_id})
 		end
 	end
 
@@ -116,7 +118,7 @@ def map_no_book_sales_to_book_per_channel(sales_channels_to_map)
 		not_found = map_sales_data_to_book(book_hash, channel[:sales_control_number], channel[:sales_table_name], channel[:url])
 		
 		body += "<h2>#{channel[:title]}</h2>\n<br />\n"
-		body += Mail_helper.alternating_table_body(not_found, "ISBN" => :cn, "URL" => :url)
+		body += Mail_helper.alternating_table_body(not_found, "Parse Object ID" => :object_id, "ISBN" => :cn, "URL" => :url)
 	end
 	send_report_email body if body.length > 0
 end
@@ -125,6 +127,7 @@ sales_channels_to_map = [
 {:title => "Amazon", :book_control_number => "asin", :sales_table_name => "AmazonSalesData", :sales_control_number => "asin", :url => "<a href=\"http://amzn.com/{0}\">Amazon Store<a/>"},
 {:title => "Apple", :book_control_number => "appleId", :sales_table_name => "AppleSalesData", :sales_control_number => "appleId", :url => "<a href=\"https://itunes.apple.com/book/id{0}\">iBooks Store</a>"},
 {:title => "Createspace", :book_control_number => "createspaceIsbn", :sales_table_name => "CreateSpaceSalesData", :sales_control_number => "asin", :url => "<a href=\"http://amzn.com/{0}\">Amazon Store</a>"},
+{:title => "Google Play", :book_control_number => "epubIsbnItunes", :sales_table_name => "GooglePlaySalesData", :sales_control_number => "epubIsbn", :url => "NA"},
 {:title => "Lightning Source", :book_control_number => "lightningSource", :sales_table_name => "LightningSalesData", :sales_control_number => "isbn", :url => "NA"},
 {:title => "Nook", :book_control_number => "bnid", :sales_table_name => "NookSalesData", :sales_control_number => "nookId", :url => "<a href=\"http://www.barnesandnoble.com/s/{0}?keyword={0}&store=nookstore\">Nook Store</a>"},
 ]

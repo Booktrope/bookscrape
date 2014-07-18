@@ -12,6 +12,8 @@ module Booktrope
 			skip = 0
 			done = false			
 			books = Array.new
+			
+			data[:exists] = [] if data[:exists].nil?
 
 			while !done
 				response = Parse::Query.new("Book").tap do | q |
