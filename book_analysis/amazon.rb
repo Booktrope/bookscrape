@@ -172,9 +172,8 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 		end
 		
 		if $changeQueue.has_key? asin
-			
 			if kindle_price.to_f == $changeQueue[asin]["price"]
-				$changeQueue[asin]["status"] = PRICE_CHANGE::CONFIRMED
+				$changeQueue[asin]["status"] = Booktrope::PRICE_CHANGE::CONFIRMED
 				$changeQueue[asin].save
 			end
 		end
