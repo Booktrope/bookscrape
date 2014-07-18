@@ -55,7 +55,7 @@ module Watir_harness
 		profile['browser.download.dir'] = @download_folder
 		profile["browser.download.manager.showWhenStarting"] = false
 		profile["browser.helperApps.alwaysAsk.force"]= false
-		profile['browser.helperApps.neverAsk.saveToDisk'] = "application/a-gzip,application/gzip, application/x-gzip, application/x-gunzip, application/gzipped, application/gzip-compressed, application/x-compressed, application/x-compress, gzip/document, application/octet-stream"
+		profile['browser.helperApps.neverAsk.saveToDisk'] = "text/csv, application/a-gzip,application/gzip, application/x-gzip, application/x-gunzip, application/gzipped, application/gzip-compressed, application/x-compressed, application/x-compress, gzip/document, application/octet-stream"
 		profile['pdfjs.disabled'] = true
 		
 		#puts "SELENIUM_HARNESS::SETUP #{Selenium::Webbrowser::Firefox::Binary.path}"
