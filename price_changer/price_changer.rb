@@ -312,7 +312,7 @@ def change_prices_for_apple(change_hash)
 		Watir_harness.browser.text_field(:id, "accountpassword").set($BT_CONSTANTS[:itunes_connect_password])
 		Watir_harness.browser.button(:class, "sign-in").click
 
-		Watir_harness.browser.link(:text, "Manage Your Books").click
+		Watir_harness.browser.link(:text, "My Books").click
 		
 		change_hash.each do | key, changeling |
 			changeling["status"] = Booktrope::PRICE_CHANGE::ATTEMPTED
@@ -379,7 +379,7 @@ def change_prices_for_apple(change_hash)
 			end
 			
 			Watir_harness.browser.div(:class, "top-heading").a.click
-			Watir_harness.browser.link(:text, "Manage Your Books").click
+			Watir_harness.browser.link(:text, "My Books").click
 		end
 	})
 end
@@ -432,7 +432,7 @@ def update_by_territory(country, currency, price, log)
 				Watir_harness.browser.select_list(:id, "pricingPopup").options[size-1].select
 				log.info "selected the last item"
 				Watir_harness.browser.img(:id, "lightboxSaveButtonEnabled").click
-				sleep 5.0
+				sleep 15.0
 			end
 			
 			log.info "hit the save button"
@@ -440,6 +440,55 @@ def update_by_territory(country, currency, price, log)
 		end
 	end
 end
+
+GOOGLE_PLAY_BASE_URL = "https://play.google.com/books/publish/a/9755457598996918863?pli=1#details/ISBN:"
+def change_prices_for_google(change_hash)
+
+	class_name = "Price_Changer::GooglePlay_Changer"
+	results = Watir_harness.run($should_run_headless, class_name, lambda { | log |
+	
+		browser = Watir_harness.browser
+		browser.goto $BT_CONSTANTS[:google_play_url]
+		
+		if browser.link(:text, "Sign in").present?
+			browser.link(:text, "Sign in").click
+		end		
+		
+		#login
+		browser.text_field(:id, "Email").set  $BT_CONSTANTS[:google_play_username]
+		browser.text_field(:id, "Passwd").set $BT_CONSTANTS[:google_play_password]
+		browser.button(:id, "signIn").click
+		
+		change_hash.each do | key, changeling |
+			book = changeling["book"]
+			
+			changeling["status"] = Booktrope::PRICE_CHANGE::ATTEMPTED
+			changeling.save
+			
+			edit_url = "#{GOOGLE_PLAY_BASE_URL}#{book["epubIsbnItunes"]}"
+
+			browser.goto edit_url
+			browser.span(:text, "Prices").wait_until_present
+			browser.span(:text, "Prices").click
+			
+			#Click on span to make the text_field visible
+			browser.div(:id, "500").div(:class, "itQ7ub-NpfCwf").table(:class, "itQ7ub-VgwJlc-tJHJj-jyrRxf").div(:class => "itQ7ub-yrriRe-eEDwDf", :class => "itQ7ub-qCDwBb-eEDwDf").div(:class, "itQ7ub-yrriRe-eEDwDf").span.click
+				
+			#Edit the value
+			browser.div(:id, "500").div(:class, "itQ7ub-NpfCwf").table(:class, "itQ7ub-VgwJlc-tJHJj-jyrRxf").div(:class => "itQ7ub-yrriRe-eEDwDf", :class => "itQ7ub-qCDwBb-eEDwDf").div(:class, "itQ7ub-yrriRe-eEDwDf").text_field.set changeling["price"]
+			
+			browser.span(:text, "Summary").click
+			browser.div(:id, "saveButton").click
+			
+			browser.span(:text, "Saving...").wait_while_present
+			
+			changeling["status"] = Booktrope::PRICE_CHANGE::UNCONFIRMED
+			changeling.save
+		end
+				
+	})
+end
+
 
 def add_days(time, n_days)
   t2 = time + (n_days * 24 * 60 * 60)
@@ -509,6 +558,9 @@ def change_prices_for(channel, change_hash)
 	 	when Booktrope::PRICE_CHANGE::NOOK_CHANNEL
 	 		puts "Nook"
 	 		change_prices_for_nook(change_hash)
+	 	when Booktrope::PRICE_CHANGE::GOOGLE_CHANNEL
+	 		puts "Google Play"
+	 		change_prices_for_google(change_hash)
 	 end
 end
 
@@ -518,14 +570,12 @@ def is_complete_on_other_channels(book, date)
 		q.eq("book", book)
 		q.eq("changeDate", date)
 		q.not_eq("channelName", Booktrope::PRICE_CHANGE::AMAZON_CHANNEL)
-		q.eq("status", Booktrope::PRICE_CHANGE::CONFIRMED)
+		q.not_eq("status", Booktrope::PRICE_CHANGE::CONFIRMED)
 		q.count = 1
 		q.limit = 0
 	end.get
 	
-	#TODO: if more channels are added we should really execute another query to get how many 
-	#channels there are besides amazon.
-	result = true if changinglings_on_other_channels["count"] == 2
+	result = true if changinglings_on_other_channels["count"] > 0
 	
 	return result
 end
@@ -548,16 +598,19 @@ def convert_status_to_code(change_hash)
 			value["status_text"] = "Unconfirmed"
 		when 99
 			value["status_text"] = "Confirmed"
+		when 404
+			value["status_text"] = "Not Found"
 		end
 	end
 end
 
 body = ""
 
-[Booktrope::PRICE_CHANGE::AMAZON_CHANNEL, Booktrope::PRICE_CHANGE::APPLE_CHANNEL, Booktrope::PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
+[Booktrope::PRICE_CHANGE::AMAZON_CHANNEL, Booktrope::PRICE_CHANGE::APPLE_CHANNEL, Booktrope::PRICE_CHANGE::GOOGLE_CHANNEL, Booktrope::PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
 #[Booktrope::PRICE_CHANGE::AMAZON_CHANNEL].each do | channel |
 #[Booktrope::PRICE_CHANGE::APPLE_CHANNEL, Booktrope::PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
 #[Booktrope::PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
+#[Booktrope::PRICE_CHANGE::GOOGLE_CHANNEL].each do | channel |
 	change_hash = get_change_hash_for channel
 	display_books_in_change_hash(change_hash) if $debug_mode
 	if change_hash.keys.size > 0 && !$debug_parse_query
