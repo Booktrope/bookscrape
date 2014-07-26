@@ -46,6 +46,10 @@ Watir_harness.run(should_run_headless, class_name, lambda { | log |
 	
 	browser = Watir_harness.browser
 	browser.goto $BT_CONSTANTS[:google_play_url]
+	
+	if browser.link(:text, "Sign in").present?
+		browser.link(:text, "Sign in").click
+	end
 
 	#login
 	browser.text_field(:id, "Email").set  $BT_CONSTANTS[:google_play_username]
@@ -121,7 +125,9 @@ def csv_to_parse(file)
 		pushdata_to_rj(google_sales_data, ["title", "epubIsbn", "dailySales", "country"])
 		results.push row_hash
 	end
-	send_report_email results
+	if results.size > 0
+		send_report_email results
+	end
 end
 
 def get_book_hash()
