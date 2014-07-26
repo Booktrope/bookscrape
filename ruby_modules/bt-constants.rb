@@ -12,8 +12,14 @@ module Booktrope
 		UNCONFIRMED = 50
 		CONFIRMED   = 99
 		NOT_ON_STORE = 404
+		SCHEDULED_TEXT   = "Scheduled"
+		ATTEMPTED_TEXT   = "Attempted"
+		UNCONFIRMED_TEXT = "Unconfirmed"
+		CONFIRMED_TEXT   = "Confirmed"
+		NOT_ON_STORE_TEXT = "Not Found"
 		AMAZON_CHANNEL = "Amazon"
 		APPLE_CHANNEL  = "Apple"
+		GOOGLE_CHANNEL = "GooglePlay"
 		NOOK_CHANNEL   = "Nook"
 	end
 

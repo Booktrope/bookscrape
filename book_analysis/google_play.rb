@@ -37,6 +37,22 @@ $batch.max_requests = 50
 
 def crawl_google_play
 
+	unconfirmed_hash = Hash.new
+	
+	options = [Booktrope::Constraint.new(:eq, "channelName", Booktrope::PRICE_CHANGE::GOOGLE_CHANNEL),
+		Booktrope::Constraint.new(:eq, "status", Booktrope::PRICE_CHANGE::UNCONFIRMED),
+		Booktrope::Constraint.new(:include, "", "book,salesChannel")
+	]
+	change_queue = Booktrope::ParseHelper.get_price_change_queue(options)
+	
+	change_queue.each do | item |
+		if !unconfirmed_hash.has_key? item["book"]
+			unconfirmed_hash[item["book"]] = item
+		else
+			unconfirmed_hash[item["book"]] = item if unconfirmed_hash[item["book"]]["changeDate"].value > item["changeDate"].value
+		end
+	end
+	
 	book_list = Booktrope::ParseHelper.get_books(:exists => ["epubIsbnItunes"])
 
 	agent = Mechanize.new
@@ -119,13 +135,23 @@ def crawl_google_play
 	
 		google_play_stats = Parse::Object.new("GooglePlayStats")
 		google_play_stats["book"] = book
-		google_play_stats["price"] = price.to_i
+		google_play_stats["price"] = price.to_f
 		google_play_stats["numOfReviews"] = total_reviews.to_i
-		google_play_stats["averageReviews"] = average_reviews.to_i
+		google_play_stats["averageReviews"] = average_reviews.to_f
 		google_play_stats["crawlDate"] = Parse::Date.new(Time.now.utc.strftime("%Y/%m/%d %H:%M:%S"))
 	
 		$batch.create_object_run_when_full!(google_play_stats) if !$opts.dontSaveToParse
 		pushdata_to_rj(google_play_stats, ["price", "numOfReviews", "averageReviews"])
+		
+		if unconfirmed_hash.has_key? book
+			$log.info "found a book with a price change. #{book["title"]} epubISBN: #{book['epubIsbnItunes']} #{unconfirmed_hash[book].id} #{price} #{unconfirmed_hash[book]["price"]}"
+			if unconfirmed_hash[book]["price"] == price.to_f
+				$log.info "CONFIRMED: Expected: #{unconfirmed_hash[book]["price"]} Actual: #{price}"
+				unconfirmed_hash[book]["status"] = Booktrope::PRICE_CHANGE::CONFIRMED
+				#unconfirmed_hash[book]["status_text"] = Booktrope::PRICE_CHANGE::CONFIRMED_TEXT
+				unconfirmed_hash[book].save
+			end
+		end
 		
 		sleep 0.5
 	end
