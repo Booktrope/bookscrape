@@ -177,12 +177,6 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 				$changeQueue[asin].save
 			end
 		end
-		
-		if salesRank == "0" || kindle_price == "0" || customer_reviews == "0" || stars == "0"
-		   log_file = File.join($log_dir, "#{asin}-#{time.strftime('%Y-%m-%d')}T#{time.strftime('%H%M%S')}Z-#{ crawl_object ? crawl_object.id : "NOT-LOADED"}.html")
-		   textHtml = "<!-- salesRank: #{salesRank} kindle_price: #{kindle_price} customer_reviews: #{customer_reviews} stars: #{stars} -->\n" + response.body
-		   File.open( log_file, 'w') { |file| file.write(textHtml) }
-		end
 	end
 	if bookHash.length > 0
 	
@@ -215,11 +209,7 @@ end
 $config_dir = File.join(basePath, "config")
 workingPath = !$opts.pathToHtmlFiles.nil? && $opts.pathToHtmlFiles.strip != "" ? $opts.pathToHtmlFiles : basePath 
 
-$log_dir    = File.join(workingPath, "missing_log")
 $cron_dir   = File.join(workingPath, "cron_log")
-
-
-Dir.mkdir($log_dir) unless File.exists?($log_dir)
 Dir.mkdir($cron_dir) unless File.exists?($cron_dir)
 
 shouldSaveToParse = $opts.dontSaveToParse ? false : true;
