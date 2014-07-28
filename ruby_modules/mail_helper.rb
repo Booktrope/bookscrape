@@ -63,11 +63,11 @@ end
 		row_map = Array.new(options.count-1) #-1 since :totals does not appear in a separate column, they are mapped to a row.
 		results.each do | result |
 			body = body + "            <tr bgcolor=\"#{row_color}\">\n"
-			body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{i+1}</font></td>\n"
+			body = body + "               <td width=\"#{100/options.count+1}%\"><font style=\"font-family: sans-serif; font-size:12px;\">#{i+1}</font></td>\n"
 			index = 0
 			options.each do | key, value |
 				next if key == :total
-				body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{result[value]}</font></td>\n"
+				body = body + "               <td width=\"#{100/options.count+1}%\"><font style=\"font-family: sans-serif; font-size:12px;\">#{result[value]}</font></td>\n"
 				if totals.has_key? value
 					totals[value] = totals[value] + result[value].to_i
 					row_map[index] = totals[value] 
@@ -81,10 +81,10 @@ end
 
 		if totals.length > 0
 			body = body + "            <tr bgcolor=\"#{row_color}\">\n"
-			body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\"><strong>Total:</strong></font></td>\n"
+			body = body + "               <td width=\"#{100/options.count+1}%\"><font style=\"font-family: sans-serif; font-size:12px;\"><strong>Total:</strong></font></td>\n"
 			row_map.each do | row |
 				total = (!row.nil?) ? row : "&nbsp;"
-				body = body + "               <td><font style=\"font-family: sans-serif; font-size:12px;\">#{total}</font></td>\n"			
+				body = body + "               <td width=\"#{100/options.count+1}%\"><font style=\"font-family: sans-serif; font-size:12px;\">#{total}</font></td>\n"			
 			end
 			body = body + "            </tr>\n"
 		end
