@@ -312,7 +312,7 @@ def change_prices_for_apple(change_hash)
 		Watir_harness.browser.text_field(:id, "accountpassword").set($BT_CONSTANTS[:itunes_connect_password])
 		Watir_harness.browser.button(:class, "sign-in").click
 
-		Watir_harness.browser.link(:text, "My Books").click
+		Watir_harness.browser.link(:text, "Manage Your Books").click
 		
 		change_hash.each do | key, changeling |
 			changeling["status"] = Booktrope::PRICE_CHANGE::ATTEMPTED
@@ -379,7 +379,7 @@ def change_prices_for_apple(change_hash)
 			end
 			
 			Watir_harness.browser.div(:class, "top-heading").a.click
-			Watir_harness.browser.link(:text, "My Books").click
+			Watir_harness.browser.link(:text, "Manage Your Books").click
 		end
 	})
 end
@@ -570,12 +570,14 @@ def is_complete_on_other_channels(book, date)
 		q.eq("book", book)
 		q.eq("changeDate", date)
 		q.not_eq("channelName", Booktrope::PRICE_CHANGE::AMAZON_CHANNEL)
-		q.not_eq("status", Booktrope::PRICE_CHANGE::CONFIRMED)
+		q.eq("status", Booktrope::PRICE_CHANGE::CONFIRMED)
 		q.count = 1
 		q.limit = 0
 	end.get
 	
-	result = true if changinglings_on_other_channels["count"] > 0
+	#TODO: if more channels are added we should really execute another query to get how many 
+	#channels there are besides amazon.
+	result = true if changinglings_on_other_channels["count"] == 3
 	
 	return result
 end
