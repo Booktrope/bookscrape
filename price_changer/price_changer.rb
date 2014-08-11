@@ -462,10 +462,16 @@ def change_prices_for_google(change_hash)
 		change_hash.each do | key, changeling |
 			book = changeling["book"]
 			
+			if book["googlePlayUrl"].nil?
+				changeling["status"] = Booktrope::PRICE_CHANGE::NOT_FOUND
+				changeling.save
+				next
+			end
+			
 			changeling["status"] = Booktrope::PRICE_CHANGE::ATTEMPTED
 			changeling.save
 			
-			edit_url = "#{GOOGLE_PLAY_BASE_URL}#{book["epubIsbnItunes"]}"
+			edit_url = book["googlePlayUrl"]
 
 			browser.goto edit_url
 			browser.span(:text, "Prices").wait_until_present
@@ -565,19 +571,26 @@ def change_prices_for(channel, change_hash)
 end
 
 def is_complete_on_other_channels(book, date)
+
 	result = false
 	changinglings_on_other_channels = Parse::Query.new("PriceChangeQueue").tap do | q |
 		q.eq("book", book)
 		q.eq("changeDate", date)
 		q.not_eq("channelName", Booktrope::PRICE_CHANGE::AMAZON_CHANNEL)
-		q.eq("status", Booktrope::PRICE_CHANGE::CONFIRMED)
+		q.greater_eq("status", Booktrope::PRICE_CHANGE::CONFIRMED)
 		q.count = 1
 		q.limit = 0
 	end.get
 	
-	#TODO: if more channels are added we should really execute another query to get how many 
-	#channels there are besides amazon.
-	result = true if changinglings_on_other_channels["count"] == 3
+	changinglings_on_other_channels["count"]
+	
+	channels_other_than_amazon = Parse::Query.new("SalesChannel").tap do | q |
+		q.count = 1
+		q.not_eq("name", Booktrope::PRICE_CHANGE::AMAZON_CHANNEL)
+		q.limit = 0
+	end.get
+	
+	result = true if changinglings_on_other_channels["count"] == channels_other_than_amazon["count"]
 	
 	return result
 end
@@ -616,8 +629,8 @@ body = ""
 	change_hash = get_change_hash_for channel
 	display_books_in_change_hash(change_hash) if $debug_mode
 	if change_hash.keys.size > 0 && !$debug_parse_query
-		convert_status_to_code change_hash
 		change_prices_for channel, change_hash
+		convert_status_to_code change_hash
 		body = body +"<h1>#{channel}</h1><br/>\n"+ Mail_helper.alternating_table_body_for_hash_of_parse_objects(change_hash, :col_data => [ "asin" => {:object => "", :field => "asin"}, "Title" => {:object => "book", :field => "title"}, "Author" => {:object => "book", :field => "author"}, "Price" => {:object => "", :field => "price"}, "Status" => {:object => "", :field =>"status_text" }, "Status Code" => {:object => "", :field => "status"}])
 	end
 end
