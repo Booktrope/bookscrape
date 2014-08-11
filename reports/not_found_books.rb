@@ -1,13 +1,9 @@
-require 'parse-ruby-client'
 require 'mailgun'
 
 $basePath   = File.absolute_path(File.dirname(__FILE__))
-$config_dir = File.join($basePath, "config")
 
 # linking to custom modules
-require File.join($basePath, "..", "ruby_modules", "bt_logging")
-require File.join($basePath, "..", "ruby_modules", "constants")
-require File.join($basePath, "..", "ruby_modules", "mail_helper")
+require File.join($basePath, '..', 'booktrope-modules')
 
 $BT_CONSTANTS = Booktrope::Constants.instance
 
@@ -18,7 +14,7 @@ def send_report_email(results)
 	top = "The following books were not found for sale on the iTunes Store on #{Date.today} PST<br />\n<br />\n"
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	email_parameters = {
-		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com', #, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
+		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, kelsey@booktrope.com', #, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
 		:from    =>	'"Booktrope iBooks Reporter 1.0" <justin.jeffress@booktrope.com>',
 		:subject => 'Apple Analytics - Books Not Found',
 		:html    => top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:title] }, "Title" => :title, "Reason" => :reason, "asin" => :asin, "epub iTunes" => :epubIsbnItunes, "Apple ID" => :appleId)
@@ -59,6 +55,8 @@ end.get
 
 mail_report_data = Array.new
 not_found.each do | book |
+log.info book["objectId"]
+next if book["book"].nil?
 	book_meta_hash = Hash.new
 	book_meta_hash[:title] = book["book"]["title"]
 	book_meta_hash[:asin] = book["book"]["asin"]
