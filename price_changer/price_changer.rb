@@ -463,7 +463,7 @@ def change_prices_for_google(change_hash)
 			book = changeling["book"]
 			
 			if book["googlePlayUrl"].nil?
-				changeling["status"] = Booktrope::PRICE_CHANGE::NOT_FOUND
+				changeling["status"] = Booktrope::PRICE_CHANGE::NOT_ON_STORE
 				changeling.save
 				next
 			end
