@@ -14,6 +14,8 @@ Extracts book sales data from Amazon KDP
             ruby amazon_reporter.rb [--dontSaveToParse] [--headless]
    EOS
 
+	opt :suppressMail, "Suppresses the compeletion email", :short=> 's'
+	opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
 	opt :testRJMetrics, "Use RJMetrics test", :short => 't'
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
    opt :headless, "Runs headless", :short => 'h'
@@ -26,7 +28,7 @@ is_test_rj = ($opts.testRJMetrics) ? true : false
 
 $BT_CONSTANTS = Booktrope::Constants.instance
 
-$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper.AMAZON_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::AMAZON_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj
 
 class_name = "Salesdata_Extraction::Amazon_reporter"
 results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
@@ -134,7 +136,17 @@ def get_book_hash()
 end
 
 def prepare_or_push_data_to_rjmetrics(amazon_sales_data, fields)
-	
+	return if !amazon_sales_data.has_key? "book" || !amazon_sales_data["book"].nil?
+
+	hash = Hash.new
+	hash["parse_book_id"] = amazon_sales_data["book"].parse_object_id
+	hash["crawlDate"] = amazon_sales_data["crawlDate"].value
+
+	fields.each do | key |
+		hash[key] = amazon_sales_data[key]
+	end
+
+	$rjClient.add_object! hash if !$opts.dontSaveToRJMetrics
 end
 
 def save_sales_data_to_parse(results)
@@ -182,7 +194,7 @@ def save_sales_data_to_parse(results)
 		amazon_sales_data["dailySales"] = daily_sales
 		
 		amazon_sales_data.save if !$opts.dontSaveToParse
-		prepare_or_push_data_to_rjmetrics(amazon_sales_data) if !$opts.dontSaveToParse
+		prepare_or_push_data_to_rjmetrics(amazon_sales_data, ["dailySales", "netSales", "country", "forceFree"]) if !$opts.dontSaveToRJMetrics && amazon_sales_data["dailySales"] > 0
 	end
 end
 
@@ -192,7 +204,7 @@ def send_report_email(results)
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	email_parameters = {
 		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, kelsey@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
-		:from    =>	'"Booktrope Daily Crawler 1.1" <justin.jeffress@booktrope.com>',
+		:from    =>	'"Booktrope Daily Crawler 2.0" <justin.jeffress@booktrope.com>',
 		:subject => 'Amazon Sales Numbers',
 		:html    => top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:daily_sales]}.reverse, "asin" => :asin, "Title" => :title, "Country" => :country, "Daily Sales" => :daily_sales, "Month To Date" => :net_sales, "Force Free" => :force_free, :total => [:daily_sales, :net_sales, :force_free])
 	}
@@ -202,10 +214,12 @@ end
 
 if !results.nil? && results.count > 0
 	#initialize parse
-#	Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
-#		        :api_key        => $BT_CONSTANTS[:parse_api_key]
-Parse.init :application_id => "RIaidI3C8TOI7h6e3HwEItxYGs9RLXxhO0xdkdM6",
-	        :api_key        => "EQVJvWgCKVp4zCc695szDDwyU5lWcO3ssEJzspxd"		        
+	Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
+		        :api_key        => $BT_CONSTANTS[:parse_api_key]	        
 	save_sales_data_to_parse(results)
-	send_report_email(results)
+	send_report_email(results) if !$opts.suppressMail
+end
+
+if $rjClient.data.count > 0 && !$opts.dontSaveToRJMetrics
+	puts $rjClient.pushData
 end
