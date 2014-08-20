@@ -10,14 +10,14 @@ $opts = Trollop::options do
    banner <<-EOS
 Extracts book sales data from Amazon KDP
 
-   Usage:
+	Usage:
             ruby amazon_reporter.rb [--dontSaveToParse] [--headless]
-   EOS
-
-	opt :suppressMail, "Suppresses the compeletion email", :short=> 's'
+	EOS
+   
+   opt :suppressMail, "Suppresses the compeletion email", :short=> 's'
 	opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
 	opt :testRJMetrics, "Use RJMetrics test", :short => 't'
-   opt :dontSaveToParse, "Turns off parse", :short => 'x'
+	opt :dontSaveToParse, "Turns off parse", :short => 'x'
    opt :headless, "Runs headless", :short => 'h'
    version "2.0.0 2014 Justin Jeffress"
 
@@ -136,9 +136,10 @@ def get_book_hash()
 end
 
 def prepare_or_push_data_to_rjmetrics(amazon_sales_data, fields)
-	return if !amazon_sales_data.has_key? "book" || !amazon_sales_data["book"].nil?
+	return if (!amazon_sales_data.has_key?("book") || amazon_sales_data["book"].nil?)
 
 	hash = Hash.new
+	
 	hash["parse_book_id"] = amazon_sales_data["book"].parse_object_id
 	hash["crawlDate"] = amazon_sales_data["crawlDate"].value
 

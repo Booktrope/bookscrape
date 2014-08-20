@@ -121,7 +121,7 @@ end
 
 def pushdata_to_rj(apple_sales_data, fields)
 
-	return if !apple_sales_data.has_key? "book" || !apple_sales_data["book"].nil?
+	return if (!apple_sales_data.has_key?("book") || apple_sales_data["book"].nil?)
 
 	hash = Hash.new
 	hash["parse_book_id"] = apple_sales_data["book"].parse_object_id
