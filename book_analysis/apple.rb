@@ -27,7 +27,7 @@ Extracts various meta data from iBooks using the iTunes search api.
    opt :dontSaveToParse, "Prevents the collected data from being saved to parse.", :short => 'x'
    opt :dontSaveToRJMetrics, "Turns of RJMetrics entirely. Data wont be saved to either the sandbox or live.", :short => 'r'
    
-   version "1.1.0 2014 Justin Jeffress"
+   version "2.0.0 2014 Justin Jeffress"
 
 end
 
@@ -45,8 +45,13 @@ $batch.max_requests = 50
 
 def book_contains_control_number(book, control_number)
 	result = false
-	if !book.nil? && !control_number.nil? && !book[control_number].nil? && book[control_number] != ""
+	if !book.nil? && !control_number.nil? && !book[control_number].nil? && book[control_number] != "" && /[0-9]{9}/.match(book[control_number])
 		result = true
+	elsif /[a-zA-Z]+/.match(book[control_number])
+		data = { :alert => "Apple Scan detected an error: TeamtropeId: #{book["teamtropeId"]} #{control_number}: #{book[control_number]}"}
+		push = Parse::Push.new(data, "PriceChanges")
+		push.type = "ios"
+		push.save
 	end
 	return result
 end
@@ -65,7 +70,7 @@ def pushdata_to_rj(appleStats, fields)
 end
 
 books = Parse::Query.new("Book").tap do |q|
-	#TODO:: create a helper function that loads the books in one shot.
+	#TODO:: update to use the helper function that loads the books in one shot.
 	q.exists("title")
    q.limit  = 1000
 end.get
@@ -107,8 +112,9 @@ count = 0
 max = 20
 request_urls = Array.new
 book_hash.each do | key, book_container |
-	book = book_container[:book]
 
+
+	book = book_container[:book]
 	if book_container[:control_number] == "objectId"
 		log.warn "Skipped: insufficient control numbers: #{book_container[:book]["title"]}"
 		book_container[:status] = BOOK_ANALYSIS_LOOKUP_STATUS_SKIPPED
