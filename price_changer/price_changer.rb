@@ -310,18 +310,35 @@ def change_prices_for_apple(change_hash)
 		
 		Watir_harness.browser.text_field(:id, "accountname").set($BT_CONSTANTS[:itunes_connect_username])
 		Watir_harness.browser.text_field(:id, "accountpassword").set($BT_CONSTANTS[:itunes_connect_password])
-		Watir_harness.browser.button(:class, "sign-in").click
+		Watir_harness.browser.link(:class, "btn-signin").click
 
-		Watir_harness.browser.link(:text, "Manage Your Books").click
+		Watir_harness.browser.div(:id, "pageWrapper").wait_until_present
+		Watir_harness.browser.div(:id, "pageWrapper").div(:class, "homepageWrapper").ul(:id, "main-nav").span(:text, "My Books").wait_until_present
+		Watir_harness.browser.div(:id, "pageWrapper").div(:class, "homepageWrapper").ul(:id, "main-nav").span(:text, "My Books").click
+		
+		click_my_books_menu = lambda {
+			Watir_harness.browser.link(:class, "menuopener").click
+			Watir_harness.browser.div(:id, "site-nav-wrapper").span(:text, "My Books").click
+		}
+		click_my_books_menu.call
 		
 		change_hash.each do | key, changeling |
 			changeling["status"] = Booktrope::PRICE_CHANGE::ATTEMPTED
 			changeling.save
 			
-			apple_id_input = Watir_harness.browser.td(:id, "search-param-value-appleId").text_field.set(changeling["book"]["appleId"])
+			search_lambda = lambda {
+				Watir_harness.browser.td(:id, "search-param-value-appleId").text_field.set(changeling["book"]["appleId"])
 
-			log.info "Searching for: #{changeling["book"]["appleId"]}"			
-			Watir_harness.browser.div(:id, "titleSearch").td(:class, "searchfield").button.click
+				log.info "Searching for: #{changeling["book"]["appleId"]}"			
+				Watir_harness.browser.div(:id, "titleSearch").td(:class, "searchfield").button.click
+			}
+						
+			search_lambda.call
+			if Watir_harness.browser.image(:src, "https://itc.mzstatic.com/itc/images/icon_alert.jpg").present?
+				click_my_books_menu.call
+				search_lambda.call
+			end
+			
 			Watir_harness.browser.div(:class, "resultList").link.click
 			sleep(5.0)
 			
@@ -358,7 +375,7 @@ def change_prices_for_apple(change_hash)
 				#setting it for all territories.
 				Watir_harness.browser.link(:text, "Select All").click
 				#clicking the continue button
-				Watir_harness.browser.span(:class, "wrapper-right-button").text_field.click
+				#Watir_harness.browser.span(:class, "wrapper-right-button").text_field.click
 			
 				sleep(5.0)
 			
@@ -378,8 +395,7 @@ def change_prices_for_apple(change_hash)
 				changeling.save
 			end
 			
-			Watir_harness.browser.div(:class, "top-heading").a.click
-			Watir_harness.browser.link(:text, "Manage Your Books").click
+			click_my_books_menu.call
 		end
 	})
 end
@@ -622,6 +638,7 @@ end
 body = ""
 
 [Booktrope::PRICE_CHANGE::AMAZON_CHANNEL, Booktrope::PRICE_CHANGE::APPLE_CHANNEL, Booktrope::PRICE_CHANGE::GOOGLE_CHANNEL, Booktrope::PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
+#[Booktrope::PRICE_CHANGE::APPLE_CHANNEL].each do | channel |
 #[Booktrope::PRICE_CHANGE::AMAZON_CHANNEL].each do | channel |
 #[Booktrope::PRICE_CHANGE::APPLE_CHANNEL, Booktrope::PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
 #[Booktrope::PRICE_CHANGE::NOOK_CHANNEL].each do | channel |
