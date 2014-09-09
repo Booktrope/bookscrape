@@ -28,8 +28,8 @@ $rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::TEAM_REVENUE_ALLOCATION
 
 BT_CONSTANTS = Booktrope::Constants.instance
 
-Booktrope::ParseHelper.init :application_id => $BT_CONSTANTS[:parse_stage_application_id],
-							       :api_key        => $BT_CONSTANTS[:parse_stage_api_key]
+Booktrope::ParseHelper.init :application_id => $BT_CONSTANTS[:parse_application_id],
+							       :api_key        => $BT_CONSTANTS[:parse_api_key]
 
 $batch = Parse::Batch.new
 $batch.max_requests = 50
