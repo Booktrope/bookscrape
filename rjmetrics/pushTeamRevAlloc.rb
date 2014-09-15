@@ -78,9 +78,7 @@ def syncParseTeamRevenueAlloc(skip)
 		
 		team_rev_alloc["sentToRjMetrics"] = true
 		
-		pp team_rev_alloc_hash
-		
-		#$batch.update_object_run_when_full!(team_rev_alloc) if !$opts.dontSaveToParse
+		$batch.update_object_run_when_full!(team_rev_alloc) if !$opts.dontSaveToParse
 		$rjClient.add_object! team_rev_alloc_hash
 	end
 	syncParseTeamRevenueAlloc(skip + 100) if team_rev_alloc_list["results"].count == 100

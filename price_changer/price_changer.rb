@@ -380,8 +380,8 @@ def change_prices_for_apple(change_hash)
 				sleep(5.0)
 			
 				Watir_harness.browser.span(:class, "wrapper-right-button").text_field.click
-				Watir_harness.browser.button(:class, "doneActionButton").wait_until_present
-				Watir_harness.browser.button(:class, "doneActionButton").click
+				Watir_harness.browser.button(:class, "confirmActionButton").wait_until_present
+				Watir_harness.browser.button(:class, "confirmActionButton").click
 			
 				changeling["status"] = Booktrope::PRICE_CHANGE::UNCONFIRMED
 				changeling.save
