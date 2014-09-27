@@ -6,6 +6,19 @@ module Booktrope
 			Parse.init(data)
 		end
 		
+		def ParseHelper.init_development()
+			constants = Booktrope::Constants.instance
+			Parse.init :application_id => constants[:parse_dev_application_id],
+	                 :api_key        => constants[:parse_dev_api_key]
+
+		end
+		
+		def ParseHelper.init_production()
+			constants = Booktrope::Constants.instance
+			Parse.init :application_id => constants[:parse_application_id],
+	                 :api_key        => constants[:parse_api_key]			
+		end
+		
 		def ParseHelper.get_books(data = {})
 			
 			skip_by = 1000

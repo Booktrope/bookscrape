@@ -14,6 +14,7 @@ Extracts book sales data from Amazon KDP
             ruby amazon_reporter.rb [--dontSaveToParse] [--headless]
 	EOS
    
+   opt :parseDev, "Sets parse environment to dev", :short => 'd'
    opt :suppressMail, "Suppresses the compeletion email", :short=> 's'
 	opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
 	opt :testRJMetrics, "Use RJMetrics test", :short => 't'
@@ -29,6 +30,16 @@ is_test_rj = ($opts.testRJMetrics) ? true : false
 $BT_CONSTANTS = Booktrope::Constants.instance
 
 $rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::AMAZON_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj
+
+#initialize parse
+if $opts.parseDev
+	Booktrope::ParseHelper.init_development
+else
+	Booktrope::ParseHelper.init_production
+end  
+
+$batch = Parse::Batch.new
+$batch.max_requests = 50
 
 class_name = "Salesdata_Extraction::Amazon_reporter"
 results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
@@ -160,6 +171,7 @@ def save_sales_data_to_parse(results)
 		daily_sales = net_sales
 		
 		#setting the crawl date
+		
 		crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/%d")+" "+Time.now().strftime("%H:%M:%S"))
 	
 		#checking to see if we have a record from the previous day only if it's not the first of the month.
@@ -193,8 +205,10 @@ def save_sales_data_to_parse(results)
 		amazon_sales_data["country"] = result[:country]
 		amazon_sales_data["crawlDate"] = crawl_date
 		amazon_sales_data["dailySales"] = daily_sales
+				
 		
-		amazon_sales_data.save if !$opts.dontSaveToParse
+		$batch.create_object_run_when_full!(amazon_sales_data) if !$opts.dontSaveToParse
+		
 		prepare_or_push_data_to_rjmetrics(amazon_sales_data, ["dailySales", "netSales", "country", "forceFree"]) if !$opts.dontSaveToRJMetrics && amazon_sales_data["dailySales"] > 0
 	end
 end
@@ -213,12 +227,14 @@ def send_report_email(results)
 	mailgun.messages.send_email(email_parameters)
 end
 
-if !results.nil? && results.count > 0
-	#initialize parse
-	Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
-		        :api_key        => $BT_CONSTANTS[:parse_api_key]	        
+if !results.nil? && results.count > 0   
 	save_sales_data_to_parse(results)
 	send_report_email(results) if !$opts.suppressMail
+end
+
+if $batch.requests.length > 0
+	$batch.run!
+	$batch.requests.clear
 end
 
 if $rjClient.data.count > 0 && !$opts.dontSaveToRJMetrics
