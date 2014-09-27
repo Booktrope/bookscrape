@@ -33,7 +33,7 @@ module Booktrope
    	ECS_SECRET_KEY = "secret_key"
    	GOOGLE_PLAY = "google-play"
    	PARSE = "parse"
-   	PARSE_STAGE = "parse-stage"
+   	PARSE_DEVELOPMENT = "parse-development"
    	PARSE_APP_KEY = "application_id"
    	PARSE_API_KEY = "api_key"
    	ITUNES_CONNECT = "itunes"
@@ -78,8 +78,8 @@ module Booktrope
 	   	self[:parse_application_id] = config_json[PARSE][PARSE_APP_KEY]
 	   	self[:parse_api_key]        = config_json[PARSE][PARSE_API_KEY]
 	   	
-	   	self[:parse_stage_application_id] = config_json[PARSE_STAGE][PARSE_APP_KEY]
-	   	self[:parse_stage_api_key]        = config_json[PARSE_STAGE][PARSE_API_KEY]
+	   	self[:parse_dev_application_id] = config_json[PARSE_DEVELOPMENT][PARSE_APP_KEY]
+	   	self[:parse_dev_api_key]        = config_json[PARSE_DEVELOPMENT][PARSE_API_KEY]
 		
 	   	self[:itunes_connect_url]      = config_json[ITUNES_CONNECT][URL]
 	   	self[:itunes_connect_username] = config_json[ITUNES_CONNECT][USERNAME]
