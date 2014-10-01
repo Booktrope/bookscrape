@@ -52,7 +52,7 @@ Watir_harness.run(should_run_headless, class_name, lambda { | log |
 	Watir_harness.browser.text_field(:id, "accountname").set($BT_CONSTANTS[:itunes_connect_username])
 	Watir_harness.browser.text_field(:id, "accountpassword").set($BT_CONSTANTS[:itunes_connect_password])
 
-	Watir_harness.browser.button(:class, "sign-in").click
+	Watir_harness.browser.link(:class, "btn-signin").click
 	
 	Watir_harness.browser.goto "https://reportingitc2.apple.com/reports.html"
 	
