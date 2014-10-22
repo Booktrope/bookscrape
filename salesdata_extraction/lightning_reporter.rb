@@ -1,4 +1,3 @@
-require 'nokogiri'
 require 'trollop'
 require 'mailgun'
 
@@ -11,10 +10,10 @@ $opts = Trollop::options do
 Extracts book sales data from Lightning Source
 
    Usage:
-            ruby lightning_reporter.rb [--dontSaveToParse] [--headless]
+            ruby lightning_reporter.rb [--dontSaveToParse] [--testRJMetrics] [--headless]
    EOS
-
-	opt :testRJMetrics, "Use RJMetrics test", :short => 't'
+   
+   opt :testRJMetrics, "Use RJMetrics test", :short => 't'
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
    opt :headless, "Runs headless", :short => 'h'
    version "2.0.0 2014 Justin Jeffress"
@@ -28,8 +27,7 @@ is_test_rj = ($opts.testRJMetrics) ? true : false
 $BT_CONSTANTS = Booktrope::Constants.instance
 
 #initialize parse
-Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
-	        :api_key        => $BT_CONSTANTS[:parse_api_key]
+Booktrope::ParseHelper.init_production
 	        
 $batch = Parse::Batch.new
 $batch.max_requests = 50	        
@@ -37,111 +35,83 @@ $batch.max_requests = 50
 $rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::LSI_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj
 
 class_name = "Salesdata_Extraction::Lightning_reporter"
-results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
+results = Watir_harness.run(should_run_headless, class_name, lambda { | log | 
+
 	results = Array.new
 	url = $BT_CONSTANTS[:lightning_source_url]
 	
-	#getting the amazon kdp page
-	Selenium_harness.get(url)
+	browser = Watir_harness.browser
 	
-	login_button = Selenium_harness.find_element(:id, "loginbutton")
-	login_button.click
+	browser.goto url
 	
-	sleep(5.0)
+	browser.link(:id, "loginbutton").wait_until_present
+	browser.link(:id, "loginbutton").click
 	
-	driver = Selenium_harness.driver
+	browser.iframe(:id, "loginFrame").text_field(:id, "login_txtLogin").set $BT_CONSTANTS[:lightning_source_username]
+	browser.iframe(:id, "loginFrame").text_field(:id, "login_txtPassword").set $BT_CONSTANTS[:lightning_source_password]
 	
-	driver.switch_to().frame("loginFrame")
+	browser.iframe(:id, "loginFrame").button(:id, "login_btnSubmit").click
 	
-	username_input = Selenium_harness.find_element(:id, "login_txtLogin")
-	username_input.send_keys $BT_CONSTANTS[:lightning_source_username]
-	
-	password_input = Selenium_harness.find_element(:id, "login_txtPassword")
-	password_input.send_keys $BT_CONSTANTS[:lightning_source_password]
-	
-	signin_button = Selenium_harness.find_element(:id, "login_btnSubmit")
-	signin_button.click
-	
-	wait = Selenium::WebDriver::Wait.new(:timeout => 15)
-	wait.until { Selenium_harness.find_element(:link, "Publisher Compensation Report").displayed? }	
-
-	report_link = Selenium_harness.find_element(:link, "Publisher Compensation Report")
-	
-	report_link.click
+	browser.link(:text, "Publisher Compensation Report").wait_until_present
+	browser.link(:text, "Publisher Compensation Report").click
 	
 	reports = [	{:operating_unit => "_ctl0__ctl0_BodyContents_MainContent_optOrgID_0", :currency => "_ctl0__ctl0_BodyContents_MainContent_optCurrency_4", :country => "US"},
 					{:operating_unit => "_ctl0__ctl0_BodyContents_MainContent_optOrgID_1", :currency => "_ctl0__ctl0_BodyContents_MainContent_optCurrency_1", :country => "GB"},
 					{:operating_unit => "_ctl0__ctl0_BodyContents_MainContent_optOrgID_2", :currency => "_ctl0__ctl0_BodyContents_MainContent_optCurrency_0", :country => "AU"}]
+	compensation_report = "_ctl0__ctl0_BodyContents_MainContent_optCompensationType_0"
 	
 	reports.each do | options |
-		start_date_field = Selenium_harness.find_element(:id, "_ctl0__ctl0_BodyContents_MainContent_PeriodEntry_txtDate1")
-		end_date_field   = Selenium_harness.find_element(:id, "_ctl0__ctl0_BodyContents_MainContent_PeriodEntry_txtDate2")
-	
-		start_date_field.send_keys (Date.today-1).strftime("%m/%d/%Y")
-		end_date_field.send_keys (Date.today-1).strftime("%m/%d/%Y")
-
-		Selenium_harness.find_element(:id, options[:operating_unit]).click
-		Selenium_harness.find_element(:id, options[:currency]).click
-		Selenium_harness.find_element(:id, "_ctl0__ctl0_BodyContents_MainContent_optCompensationType_0").click
-	
-		submit_button = Selenium_harness.find_element(:id, "_ctl0__ctl0_BodyContents_MainContent_btnSubmit")
-		submit_button.click
-	
-		the_page_data = Nokogiri.parse(Selenium_harness.page_source)	
-		the_sales_table = the_page_data.css("table.lsiTable tr")
-
-		the_sales_table.each do | row |
-			next if row.children[0].text == "ISBN" || row.children[0].text.gsub(/(\xC2\xA0)+$/,"") == ""
-			break if row.children[0].text.strip == "Your search criteria produced no results."
+		browser.text_field(:id, "_ctl0__ctl0_BodyContents_MainContent_PeriodEntry_txtDate1").set (Date.today-1).strftime("%m/%d/%Y")
+		browser.text_field(:id, "_ctl0__ctl0_BodyContents_MainContent_PeriodEntry_txtDate2").set (Date.today-1).strftime("%m/%d/%Y")
 		
+		browser.checkbox(:id, options[:operating_unit]).click
+		browser.checkbox(:id, options[:currency]).click
+		browser.checkbox(:id, compensation_report).click
+		browser.button(:id, "_ctl0__ctl0_BodyContents_MainContent_btnSubmit").click
+		
+		browser.table(:class, "lsiTable").trs(:class, "lsiTable")
+		
+		browser.table(:class, "lsiTable").trs(:class, "lsiTable").each do | row |
+			next if row.tds[0].text.strip == ""
+			break if row.tds[0].text.strip == "Your search criteria produced no results."
+		
+			log.info "#{row.tds[0].text}\t#{row.tds[1].text}\t#{row.tds[2].text}\t#{row.tds[6].text}\t#{row.tds[7].text}\t#{row.tds[8].text}"
+			
 			row_hash = Hash.new
-			row_hash[:isbn]              = row.children[0].text.strip
-			row_hash[:title]             = row.children[2].text.strip
-			row_hash[:author]            = row.children[4].text.strip
-			row_hash[:quantity_sold]     = row.children[12].text.strip.to_i
-			row_hash[:quantity_returned] = row.children[14].text.strip.to_i
-			row_hash[:net_quantity]      = row.children[16].text.strip.to_i
+			row_hash[:isbn]              = row.tds[0].text.strip
+			row_hash[:title]             = row.tds[1].text.strip
+			row_hash[:author]            = row.tds[2].text.strip
+			row_hash[:quantity_sold]     = row.tds[6].text.strip.to_i
+			row_hash[:quantity_returned] = row.tds[7].text.strip.to_i
+			row_hash[:net_quantity]      = row.tds[8].text.strip.to_i
 			row_hash[:country]           = options[:country]
 			row_hash[:crawl_date]        = (Date.today-1).strftime("%Y/%m/%d")+" "+"00:00:00"
 			results.push row_hash
 		end
-	
-		back_to_report = Selenium_harness.find_element(:id, "_ctl0__ctl0_BodyContents_MainContent_BackToSearchButton")
+		
+		back_to_report = browser.button(:id, "_ctl0__ctl0_BodyContents_MainContent_BackToSearchButton")
 		back_to_report.click if options[:operating_unit] != reports[-1][:operating_unit] # don't click the 'New Report' if the current report is the last one.
-	end	
+	end
 	
 	return results
 })
 
-def get_book_hash()
+def get_book_hash
 	book_hash = Hash.new
-
-	#getting the number of books in parse
-	book_count = Parse::Query.new("Book").tap do |q|
-   	q.exists("isbn")
-   	q.limit = 0
-   	q.count = 1
-	end.get	 
-
-	#requesting all books at once
-	#TODO: parse is limited to 1000 rows per query. Need to update this to loop requests 
-	#using skip to get everything.
-	book_list = Parse::Query.new("Book").tap do |q|
-		q.exists("isbn")
-		q.limit = book_count["count"]
-	end.get
-
+	
+	book_list = Booktrope::ParseHelper.get_books(:exists => ["lightningSource"])
 	book_list.each do | book |
-		book_hash[book["isbn"]] = book
+		book_hash[book["lightningSource"]] = book
 	end
 	return book_hash
 end
 
 def save_sales_data_to_parse(results)
-	book_hash = get_book_hash()
+	book_hash = get_book_hash
+
 	results.each do | result |
 		lightning_data = Parse::Object.new("LightningSalesData")
-		lightning_data["book"] = book_hash[result[:isbn].to_i]
+		lightning_data["book"] = book_hash[result[:isbn]]
 		lightning_data["isbn"] = result[:isbn].to_i
 		lightning_data["netSales"] = result[:net_quantity].to_i
 		lightning_data["country"] = result[:country]
@@ -151,6 +121,7 @@ def save_sales_data_to_parse(results)
 		
 		$batch.create_object_run_when_full! lightning_data if !$opts.dontSaveToParse
 		pushdata_to_rj(lightning_data, ["netSales", "country"])
+
 	end
 end
 
@@ -172,7 +143,7 @@ def send_report_email(results)
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	email_parameters = {
 		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, kelsey@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
-		:from    =>	'"Booktrope Daily Crawler 2.0" <justin.jeffress@booktrope.com>',
+		:from    =>	'"Booktrope Daily Crawler 2.5" <justin.jeffress@booktrope.com>',
 		:subject => 'Lightning Source Sales Numbers',
 		:html    => top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:net_quantity] }.reverse, "ISBN" => :isbn, "Title" => :title, "Country" => :country,  "Daily Sales" => :quantity_sold, "Returned" => :quantity_returned, "Net Sales" => :net_quantity, :total => [:quantity_sold, :quantity_returned, :net_quantity])
 	}
