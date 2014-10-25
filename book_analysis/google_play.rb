@@ -30,7 +30,7 @@ Booktrope::ParseHelper.init :application_id => $BT_CONSTANTS[:parse_application_
 							       :api_key        => $BT_CONSTANTS[:parse_api_key]
 							       
 is_test_rj = ($opts.testRJMetrics) ? true : false
-$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::GOOGLE_PLAY_STATS_TABLE, ["parse_book_id", "crawlDate"], is_test_rj
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::GOOGLE_PLAY_STATS_TABLE, ["parse_book_id", "crawlDate"], is_test_rj if !$opts.dontSaveToRJMetrics
 
 $batch = Parse::Batch.new
 $batch.max_requests = 50
@@ -141,7 +141,7 @@ def crawl_google_play
 		google_play_stats["crawlDate"] = Parse::Date.new(Time.now.utc.strftime("%Y/%m/%d %H:%M:%S"))
 	
 		$batch.create_object_run_when_full!(google_play_stats) if !$opts.dontSaveToParse
-		pushdata_to_rj(google_play_stats, ["price", "numOfReviews", "averageReviews"])
+		pushdata_to_rj(google_play_stats, ["price", "numOfReviews", "averageReviews"]) if !$opts.dontSaveToRJMetrics
 		
 		if unconfirmed_hash.has_key? book
 			$log.info "found a book with a price change. #{book["title"]} epubISBN: #{book['epubIsbnItunes']} #{unconfirmed_hash[book].id} #{price} #{unconfirmed_hash[book]["price"]}"
@@ -177,6 +177,6 @@ if $batch.requests.length > 0
 	$batch.requests.clear
 end
 
-if $rjClient.data.count > 0 
+if !$opts.dontSaveToRJMetrics && $rjClient.data.count > 0 
 	puts $rjClient.pushData
 end

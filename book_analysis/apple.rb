@@ -35,7 +35,7 @@ log = Bt_logging.create_logging('Book_analysis::Apple')
 
 $BT_CONSTANTS = Booktrope::Constants.instance
 is_test_rj = ($opts.testRJMetrics) ? true : false
-$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::APPLE_STATS_TABLE, ["parse_book_id", "crawlDate"], is_test_rj
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::APPLE_STATS_TABLE, ["parse_book_id", "crawlDate"], is_test_rj if !$opts.dontSaveToRJMetrics
 
 Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
 	        :api_key        => $BT_CONSTANTS[:parse_api_key]
@@ -265,6 +265,6 @@ if $batch.requests.length > 0
 	$batch.requests.clear
 end
 
-if $rjClient.data.count > 0 && !$opts.dontSaveToRJMetrics
+if !$opts.dontSaveToRJMetrics && $rjClient.data.count > 0
 	puts $rjClient.pushData
 end

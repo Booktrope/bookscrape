@@ -29,7 +29,7 @@ is_test_rj = ($opts.testRJMetrics) ? true : false
 
 $BT_CONSTANTS = Booktrope::Constants.instance
 
-$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::AMAZON_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::AMAZON_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj if !$opts.dontSaveToRJMetrics
 
 #initialize parse
 if $opts.parseDev
@@ -171,13 +171,14 @@ def save_sales_data_to_parse(results)
 		daily_sales = net_sales
 		
 		#setting the crawl date
-		
-		crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/%d")+" "+Time.now().strftime("%H:%M:%S"))
+		crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/24")+" "+Time.now().strftime("23:55:00"))
+		#crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/26")+" "+Time.now().strftime("11:55:00"))	
 	
 		#checking to see if we have a record from the previous day only if it's not the first of the month.
 		if Date.today.day != 1
 			old_sales_data = Parse::Query.new("AmazonSalesData").tap do |q|
 				q.greater_than("crawlDate", Parse::Date.new(((Date.today-1).strftime("%Y/%m/01")+" "+"00:00:00")))
+				q.less_than("crawlDate", Parse::Date.new(((Date.today-1).strftime("%Y/%m/23")+" "+"00:00:00")))
 				q.eq("asin", result[:asin])
 				q.eq("country", result[:country])
 				q.order_by = "crawlDate"
@@ -207,18 +208,20 @@ def save_sales_data_to_parse(results)
 		amazon_sales_data["dailySales"] = daily_sales
 				
 		
-		$batch.create_object_run_when_full!(amazon_sales_data) if !$opts.dontSaveToParse
+		#$batch.create_object_run_when_full!(amazon_sales_data) if !$opts.dontSaveToParse
 		
-		prepare_or_push_data_to_rjmetrics(amazon_sales_data, ["dailySales", "netSales", "country", "forceFree"]) if !$opts.dontSaveToRJMetrics && amazon_sales_data["dailySales"] > 0
+		#prepare_or_push_data_to_rjmetrics(amazon_sales_data, ["dailySales", "netSales", "country", "forceFree"]) if !$opts.dontSaveToRJMetrics && amazon_sales_data["dailySales"] > 0
+		
+		sleep 1.0
 	end
 end
 
 
 def send_report_email(results)
-	top = "Amazon Sales Numbers for #{Date.today} PST<br />\n<br />\n"
+	top = "Amazon Sales Numbers for #{Date.today-1} PST<br />\n<br />\n"
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	email_parameters = {
-		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, kelsey@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
+		:to      => 'justin.jeffress@booktrope.com', #, andy@booktrope.com, kelsey@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
 		:from    =>	'"Booktrope Daily Crawler 2.0" <justin.jeffress@booktrope.com>',
 		:subject => 'Amazon Sales Numbers',
 		:html    => top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:daily_sales]}.reverse, "asin" => :asin, "Title" => :title, "Country" => :country, "Daily Sales" => :daily_sales, "Month To Date" => :net_sales, "Force Free" => :force_free, :total => [:daily_sales, :net_sales, :force_free])

@@ -15,6 +15,7 @@ Extracts book sales data from Lightning Source
    
    opt :testRJMetrics, "Use RJMetrics test", :short => 't'
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
+   opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
    opt :headless, "Runs headless", :short => 'h'
    version "2.0.0 2014 Justin Jeffress"
 
@@ -32,7 +33,7 @@ Booktrope::ParseHelper.init_production
 $batch = Parse::Batch.new
 $batch.max_requests = 50	        
 
-$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::LSI_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::LSI_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj if !$opts.dontSaveToRJMetrics
 
 class_name = "Salesdata_Extraction::Lightning_reporter"
 results = Watir_harness.run(should_run_headless, class_name, lambda { | log | 
@@ -120,7 +121,7 @@ def save_sales_data_to_parse(results)
 		puts "#{result[:isbn]}\t#{result[:title]}\t#{result[:country]}\t#{result[:net_quantity]}\t#{result[:crawl_date]}"	if $opts.dontSaveToParse
 		
 		$batch.create_object_run_when_full! lightning_data if !$opts.dontSaveToParse
-		pushdata_to_rj(lightning_data, ["netSales", "country"])
+		pushdata_to_rj(lightning_data, ["netSales", "country"]) if !$opts.dontSaveToRJMetrics
 
 	end
 end
@@ -160,6 +161,6 @@ if $batch.requests.length > 0 && !$opts.dontSaveToParse
 	$batch.requests.clear
 end
 
-if $rjClient.data.count > 0 #&& !$opts.dontSaveToRJMetrics
+if !$opts.dontSaveToRJMetrics && $rjClient.data.count > 0
 	puts $rjClient.pushData
 end

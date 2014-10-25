@@ -159,7 +159,7 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
 
 			crawl_object['book'] = book_object
 			
-			pushdata_to_rj(crawl_object, ["sales_rank","kindle_price","num_of_reviews","average_stars","crawl_date","got_price"])
+			pushdata_to_rj(crawl_object, ["sales_rank","kindle_price","num_of_reviews","average_stars","crawl_date","got_price"]) if !$opts.dontSaveToRJMetrics
 			begin
 				#crawl_object.save
 				$batch.create_object_run_when_full! crawl_object
@@ -229,7 +229,7 @@ Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
 #	        :api_key        => "EQVJvWgCKVp4zCc695szDDwyU5lWcO3ssEJzspxd"
 
 is_test_rj = ($opts.testRJMetrics) ? true : false	        
-$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::AMAZON_STATS_TABLE, ["parse_book_id", "crawlDate"], is_test_rj
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::AMAZON_STATS_TABLE, ["parse_book_id", "crawlDate"], is_test_rj if !$opts.dontSaveToRJMetrics
 
 $batch = Parse::Batch.new
 $batch.max_requests = 50
@@ -290,6 +290,6 @@ if $batch.requests.length > 0
 	$batch.requests.clear
 end
 
-if $rjClient.data.count > 0 
+if !$opts.dontSaveToRJMetrics && $rjClient.data.count > 0 
 	puts $rjClient.pushData
 end

@@ -37,7 +37,7 @@ Booktrope::ParseHelper.init :application_id => $BT_CONSTANTS[:parse_application_
 $batch = Parse::Batch.new
 $batch.max_requests = 50
 
-$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::NOOK_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::NOOK_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj if !$opts.dontSaveToRJMetrics
 
 Watir_harness.download_folder = $opts.downloadFolder
 class_name = "Salesdata_Extraction::Googleplay_reporter"
@@ -122,7 +122,7 @@ def csv_to_parse(file)
 		google_sales_data["book"] = $book_hash[row_hash[:isbn]] if $book_hash.has_key? row_hash[:isbn]
 
 		$batch.create_object_run_when_full! google_sales_data if !$opts.dontSaveToParse
-		pushdata_to_rj(google_sales_data, ["title", "epubIsbn", "dailySales", "country"])
+		pushdata_to_rj(google_sales_data, ["title", "epubIsbn", "dailySales", "country"]) if !$opts.dontSaveToRJMetrics
 		results.push row_hash
 	end
 	if results.size > 0
@@ -175,6 +175,6 @@ if $batch.requests.length > 0 && !$opts.dontSaveToParse
 	$batch.requests.clear
 end
 
-if $rjClient.data.count > 0 #&& !$opts.dontSaveToRJMetrics
+if !$opts.dontSaveToRJMetrics && $rjClient.data.count > 0
 	puts $rjClient.pushData
 end
