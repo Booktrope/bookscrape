@@ -34,7 +34,7 @@ Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
 $batch = Parse::Batch.new
 $batch.max_requests = 50
 
-$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::CREATESPACE_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::CREATESPACE_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj if !$opts.dontSaveToRJMetrics
 
 class_name = "Salesdata_Extraction::Createspace_reporter"
 results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
@@ -162,7 +162,7 @@ def save_sales_data_to_parse(results)
 		cs_sales_data["crawlDate"] = crawl_date
 		cs_sales_data["dailySales"] = daily_sales
 		$batch.create_object_run_when_full! cs_sales_data if !$opts.dontSaveToParse
-		pushdata_to_rj(cs_sales_data, ["country", "dailySales"])
+		pushdata_to_rj(cs_sales_data, ["country", "dailySales"]) if !$opts.dontSaveToRJMetrics
 	end	
 end
 
@@ -202,6 +202,6 @@ if $batch.requests.length > 0 && !$opts.dontSaveToParse
 	$batch.requests.clear
 end
 
-if $rjClient.data.count > 0 #&& !$opts.dontSaveToRJMetrics
+if !$opts.dontSaveToRJMetrics && $rjClient.data.count > 0
 	puts $rjClient.pushData
 end

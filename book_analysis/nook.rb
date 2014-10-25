@@ -30,7 +30,7 @@ Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
 	        :api_key        => $BT_CONSTANTS[:parse_api_key]
 
 is_test_rj = ($opts.testRJMetrics) ? true : false	        
-$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::NOOK_STATS_TABLE, ["parse_book_id", "crawlDate"], is_test_rj
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::NOOK_STATS_TABLE, ["parse_book_id", "crawlDate"], is_test_rj if !$opts.dontSaveToRJMetrics
       
 def pushdata_to_rj(nook_stats, fields)
 	return if !nook_stats.has_key? "book" || !nook_stats["book"].nil?
@@ -56,7 +56,7 @@ def save_stats(book, bnid, book_price, sales_rank, average_rating, review_count)
 	nook_stats["crawlDate"] = Parse::Date.new(Time.now.utc.strftime("%Y/%m/%d %H:%M:%S"))
 	
 	$batch.create_object_run_when_full!(nook_stats)
-	pushdata_to_rj(nook_stats, ["price","salesRank","averageRating","reviewCount"])
+	pushdata_to_rj(nook_stats, ["price","salesRank","averageRating","reviewCount"]) if !$opts.dontSaveToRJMetrics
 	
 	return true
 end
@@ -130,16 +130,22 @@ def crawl_nook(book_list, unconfirmed_hash)
 		
 				#looking up the price.
 				sleep 0.5
-				price =  Watir_harness.browser.div(:class => "price", :class =>"hilight")
-				book_price = price.text.gsub(/\$/, "")
-		
+				price =  0
+				
+				unless !Watir_harness.browser.div(:class => "price", :class =>"hilight").present?
+					price = Watir_harness.browser.div(:class => "price", :class =>"hilight")
+					book_price = price.text.gsub(/\$/, "")
+				end
 				#getting the sales rank out of the product details section
-				product_details = Watir_harness.browser.div(:class => "product-details").lis
-
+				log.info book_price
 				sales_rank = "0"
-				product_details.each do | detail |
-					if detail.text.start_with? "Sales rank:"
-						sales_rank = detail.text.gsub(/Sales rank: /, "")
+				unless !Watir_harness.browser.div(:class => "product-details").present?
+					product_details = Watir_harness.browser.div(:class => "product-details").lis
+				
+					product_details.each do | detail |
+						if detail.text.start_with? "Sales rank:"
+							sales_rank = detail.text.gsub(/Sales rank: /, "")
+						end
 					end
 				end
 	
@@ -159,13 +165,16 @@ def crawl_nook(book_list, unconfirmed_hash)
 				end
 		
 				#getting the product image url.
-				product_image_url = Watir_harness.browser.img(:class => "product-image").src
+				product_image_url = ""
+				product_image_url = Watir_harness.browser.img(:class => "product-image").src if Watir_harness.browser.img(:class => "product-image").nil? 
 	
 				puts "#{book_price}\t#{sales_rank}\t#{average_rating}\t#{review_count}\t#{product_image_url}" if $opts.dontSaveToParse
 
 				if unconfirmed_hash.has_key? book
+				pp unconfirmed_hash[book]
+				log.info "actual price: #{book_price.to_f} expected price: #{unconfirmed_hash[book]["price"].to_f}"
 					if book_price.to_i == unconfirmed_hash[book]["price"].to_i
-						unconfirmed_hash[book]["status"] = PRICE_CHANGE::CONFIRMED
+						unconfirmed_hash[book]["status"] = Booktrope::PRICE_CHANGE::CONFIRMED
 						unconfirmed_hash[book].save
 					end
 				end
@@ -175,7 +184,7 @@ def crawl_nook(book_list, unconfirmed_hash)
 
 				count = count + 1
 				
-				sleep 2.5			
+				sleep 5.0			
 			end
 	
 			if $batch.requests.length > 0
@@ -297,6 +306,6 @@ $book_group.each_with_index do | list, index |
 	crawl_nook list, unconfirmed_hash
 end
 
-if $rjClient.data.count > 0 
+if !$opts.dontSaveToRJMetrics && $rjClient.data.count > 0 
 	puts $rjClient.pushData
 end

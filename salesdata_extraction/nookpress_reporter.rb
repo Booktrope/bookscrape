@@ -34,7 +34,7 @@ Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
 $batch = Parse::Batch.new
 $batch.max_requests = 50
 
-$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::NOOK_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::NOOK_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj if !$opts.dontSaveToRJMetrics
 
 class_name = "Salesdata_Extraction::Nookpress_reporter"
 results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
@@ -151,7 +151,7 @@ def save_sales_data_to_parse(results)
 		nook_sales_data["dailySales"] = daily_sales
 		
 		$batch.create_object_run_when_full! nook_sales_data if !$opts.dontSaveToParse
-		pushdata_to_rj(nook_sales_data, ["dailySales", "country"])
+		pushdata_to_rj(nook_sales_data, ["dailySales", "country"]) if !$opts.dontSaveToRJMetrics
 		
 		puts "#{result[:isbn]}\t#{result[:bn_id]}\t#{result[:country]}\t#{result[:date]}\t#{result[:units_sold]}" if $opts.dontSaveToParse
 	end	
@@ -193,6 +193,6 @@ if $batch.requests.length > 0 && !$opts.dontSaveToParse
 	$batch.requests.clear
 end
 
-if $rjClient.data.count > 0 #&& !$opts.dontSaveToRJMetrics
+if !$opts.dontSaveToRJMetrics && $rjClient.data.count > 0
 	puts $rjClient.pushData
 end
