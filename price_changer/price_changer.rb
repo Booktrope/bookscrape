@@ -50,9 +50,9 @@ def change_prices_for_amazon(change_hash)
 		
 		#changing prices
 		change_hash.each do | key, changeling |
-			changeling["status"] = Booktrope::PRICE_CHANGE::ATTEMPTED
-			changeling.save
-			
+			changeling["status"] = Booktrope::PRICE_CHANGE::ATTEMPTED			
+			changeling.save_perserve(["book","salesChannel"])
+
 			edit_page_url = changeling["book"]["kdpUrl"]
 			if edit_page_url.nil? || edit_page_url == ""
 				edit_page_url = lookup_book_edit_page_url(change_hash, changeling["book"]["asin"])
@@ -98,7 +98,7 @@ def change_prices_for_amazon(change_hash)
 				sleep(35.0)
 				Watir_harness.browser.button(:class, "a-button-input").wait_until_present
 				changeling["status"] = Booktrope::PRICE_CHANGE::UNCONFIRMED
-				changeling.save
+				changeling.save_perserve(["book","salesChannel"])
 				Watir_harness.browser.button(:class, "a-button-input").click
 				
 			else
@@ -174,9 +174,10 @@ def change_prices_for_nook(change_hash)
 		#clicking on the login button
 		Watir_harness.browser.button(:id, "login_button").click
 
+
 		change_hash.each do | key, changeling |
 			changeling["status"] = Booktrope::PRICE_CHANGE::ATTEMPTED
-			changeling.save
+			changeling.save_perserve(["book","salesChannel"])
 			
 			edit_page_url = changeling["book"]["nookUrl"]
 			if edit_page_url.nil? || edit_page_url == ""
@@ -227,7 +228,7 @@ def change_prices_for_nook(change_hash)
 			Watir_harness.browser.div(:class => "alert-box", :class => "warning", :class => "squeeze").text.end_with? "Changes can take up to 24 hours to appear on the site."
 			
 			changeling["status"] = Booktrope::PRICE_CHANGE::UNCONFIRMED
-			changeling.save
+			changeling.save_perserve(["book","salesChannel"])
 			sleep(1.0)
 		end
 	})
@@ -324,11 +325,10 @@ def change_prices_for_apple(change_hash)
 		
 		change_hash.each do | key, changeling |
 			changeling["status"] = Booktrope::PRICE_CHANGE::ATTEMPTED
-			changeling.save
+			changeling.save_perserve(["book","salesChannel"])
 			
 			search_lambda = lambda {
-				Watir_harness.browser.td(:id, "search-param-value-appleId").text_field.set(changeling["book"]["appleId"])
-
+				Watir_harness.browser.td(:id, "search-param-value-appleId").text_field.set(changeling["book"]["appleId"])				
 				log.info "Searching for: #{changeling["book"]["appleId"]}"			
 				Watir_harness.browser.div(:id, "titleSearch").td(:class, "searchfield").button.click
 			}
@@ -344,7 +344,7 @@ def change_prices_for_apple(change_hash)
 			
 			#if !Watir_harness.browser.div(:id, "message-not-on-store-status-#{changeling["book"]["appleId"]}-publication").present?
 			#	changeling["status"] = Booktrope::PRICE_CHANGE::NOT_ON_STORE
-			#	changeling.save
+			#	changeling.save_perserve(["book","salesChannel"])
 			#	next
 			#end
 			
@@ -384,7 +384,7 @@ def change_prices_for_apple(change_hash)
 				Watir_harness.browser.button(:class, "confirmActionButton").click
 			
 				changeling["status"] = Booktrope::PRICE_CHANGE::UNCONFIRMED
-				changeling.save
+				changeling.save_perserve(["book","salesChannel"])
 			else
 				territory_hash = {"United States" => :usd, "Canada" => :cad, "United Kingdom" => :gbp, "Australia" => :aud}
 				territory_hash.each do | country, currency |
@@ -392,7 +392,7 @@ def change_prices_for_apple(change_hash)
 					#might need to add a #wait_until_present
 				end
 				changeling["status"] = Booktrope::PRICE_CHANGE::UNCONFIRMED
-				changeling.save
+				changeling.save_perserve(["book","salesChannel"])
 			end
 			
 			click_my_books_menu.call
@@ -480,12 +480,12 @@ def change_prices_for_google(change_hash)
 			
 			if book["googlePlayUrl"].nil?
 				changeling["status"] = Booktrope::PRICE_CHANGE::NOT_ON_STORE
-				changeling.save
+				changeling.save_perserve(["book","salesChannel"])
 				next
 			end
 			
 			changeling["status"] = Booktrope::PRICE_CHANGE::ATTEMPTED
-			changeling.save
+			changeling.save_perserve(["book","salesChannel"])
 			
 			edit_url = book["googlePlayUrl"]
 
@@ -505,7 +505,7 @@ def change_prices_for_google(change_hash)
 			browser.span(:text, "Saving...").wait_while_present
 			
 			changeling["status"] = Booktrope::PRICE_CHANGE::UNCONFIRMED
-			changeling.save
+			changeling.save_perserve(["book","salesChannel"])
 		end
 				
 	})
@@ -554,7 +554,7 @@ def get_change_hash_for(channel)
 		puts "#{changeling["changeDate"].value}\t#{changeling["book"][changeling["salesChannel"]["controlField"]]}\t#{changeling["status"]}\t#{changeling["book"]["title"]}\t#{changeling["book"]["author"]}\t#{changeling["price"]}\t#{changeling["isEnd"]}"
 		control_number = changeling["book"][changeling["salesChannel"]["controlField"]]
 	
-		puts "#{changeling["changeDate"].value}\t#{DateTime.parse(change_date)}"
+		puts "#{changeling.parse_object_id}\t#{changeling["changeDate"].value}\t#{DateTime.parse(change_date)}"
 		
 		if changeling["isEnd"] && (changeling["changeDate"].value <= DateTime.parse(Time.now.utc.to_s))
 			change_hash[control_number] = (!change_hash.has_key? control_number || changeling["changeDate"].value < change_hash[control_number]["changeDate"].value) ? changeling : change_hash[control_number]
