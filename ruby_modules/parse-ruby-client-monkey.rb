@@ -1,6 +1,20 @@
 require 'parse-ruby-client'
 
 module Parse
+	class Object
+		def save_perserve(fields = [])
+			perserve_these = Array.new
+			fields.each do | field |
+				perserve_these.push self[field]
+			end
+			
+			self.save
+			
+			fields.each_with_index do | field, index |
+				self[field] = perserve_these[index]
+			end
+		end
+	end
 	class Batch
 		attr_accessor :max_requests
 
