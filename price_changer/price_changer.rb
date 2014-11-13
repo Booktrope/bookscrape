@@ -32,8 +32,7 @@ $should_run_headless = ($opts.headless) ?  true : false
 
 $BT_CONSTANTS = Booktrope::Constants.instance
 
-Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
-	        :api_key        => $BT_CONSTANTS[:parse_api_key]
+Booktrope::ParseHelper.init_production
 
 def change_prices_for_amazon(change_hash)
 	class_name = "Price_Changer::Amazon_KDP_Changer"
@@ -191,6 +190,14 @@ def change_prices_for_nook(change_hash)
 			
 			Watir_harness.browser.goto edit_page_url
 			
+			
+			if Watir_harness.browser.link(:class, "putOnSale").present?
+				changeling["status"] = Booktrope::PRICE_CHANGE::NOT_ON_STORE
+				changeling.save_perserve(["book","salesChannel"])
+				next
+			end
+			
+			
 			Watir_harness.browser.link(:text, "Rights & Pricing").click
 			
 			if Watir_harness.browser.div(:class => "alert-box", :class => "error").present?
@@ -342,11 +349,11 @@ def change_prices_for_apple(change_hash)
 			Watir_harness.browser.div(:class, "resultList").link.click
 			sleep(5.0)
 			
-			#if !Watir_harness.browser.div(:id, "message-not-on-store-status-#{changeling["book"]["appleId"]}-publication").present?
-			#	changeling["status"] = Booktrope::PRICE_CHANGE::NOT_ON_STORE
-			#	changeling.save_perserve(["book","salesChannel"])
-			#	next
-			#end
+			if !Watir_harness.browser.div(:id, "message-on-store-status-#{changeling["book"]["appleId"]}-publication").present?
+				changeling["status"] = Booktrope::PRICE_CHANGE::NOT_ON_STORE
+				changeling.save_perserve(["book","salesChannel"])
+				next
+			end
 			
 			#Opening up the rights and pricing page
 			Watir_harness.browser.link(:text, "Rights and Pricing").click
@@ -475,8 +482,13 @@ def change_prices_for_google(change_hash)
 		browser.text_field(:id, "Passwd").set $BT_CONSTANTS[:google_play_password]
 		browser.button(:id, "signIn").click
 		
+		
+		
 		change_hash.each do | key, changeling |
 			book = changeling["book"]
+			
+			
+			
 			
 			if book["googlePlayUrl"].nil?
 				changeling["status"] = Booktrope::PRICE_CHANGE::NOT_ON_STORE
@@ -491,6 +503,15 @@ def change_prices_for_google(change_hash)
 
 			browser.goto edit_url
 			browser.span(:text, "Prices").wait_until_present
+			
+			status_message = browser.div(:class, "itQ7ub-uPnqId-i8xkGf").div(:class, "itQ7ub-DWWcKd-k77Iif").div(:class, "itQ7ub-DWWcKd-DARUcf").div(:class, "itQ7ub-DARUcf-qJTHM").div(:class => "itQ7ub-DARUcf-Q4BLdf", :class => "itQ7ub-pIkB8-jOfkMb-BivLOc").h3
+			if status_message.text == "BOOK STATUS: DEACTIVATED"
+				changeling["status"] = Booktrope::PRICE_CHANGE::NOT_ON_STORE
+				changeling.save_perserve(["book","salesChannel"])
+				next
+			end
+			
+			
 			browser.span(:text, "Prices").click
 			
 			#Click on span to make the text_field visible
