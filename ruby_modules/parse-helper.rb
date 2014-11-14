@@ -46,6 +46,31 @@ module Booktrope
 			return books
 		end
 		
+		def ParseHelper.get_books_with_constraints(options = [])
+			skip_by = 1000
+			skip = 0
+			done = false
+			books = Array.new
+			
+			while !done
+				response = Parse::Query.new("Book").tap do | q |
+					options.each do | option |
+						ParseHelper.add_constraint option, q
+					end
+					
+					q.count = 1
+					q.limit = skip_by
+					q.skip = skip
+				end.get
+				
+				books.concat response["results"]
+				skip += skip_by
+				done = true #if skip >= response["count"]
+			end
+			
+			return books
+		end
+		
 		def ParseHelper.get_price_change_queue(options = [])
 			change_queue = Parse::Query.new("PriceChangeQueue").tap do | q |
 				options.each do | option |
@@ -73,7 +98,7 @@ module Booktrope
 			when :value_in
 				query.value_in(constraint.field_name, constraint.value)
 			when :exists
-				query.eq(constraint.field_name, constraint.value)
+				query.exists(constraint.field_name, constraint.value)
 			when :order_by
 				query.order_by = constraint.value
 			when :order
