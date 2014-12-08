@@ -47,6 +47,8 @@ def change_prices_for_amazon(change_hash)
 		Watir_harness.browser.text_field(:id, "ap_password").set($BT_CONSTANTS[:amazon_kdp_password])
 		Watir_harness.browser.button(:id, "signInSubmit-input").click
 		
+		
+		
 		#changing prices
 		change_hash.each do | key, changeling |
 			changeling["status"] = Booktrope::PRICE_CHANGE::ATTEMPTED			
@@ -202,7 +204,8 @@ def change_prices_for_nook(change_hash)
 			
 			if Watir_harness.browser.div(:class => "alert-box", :class => "error").present?
 				#browser.div(:class => "alert-box", :class => "error").text == "You have missing or invalid fields in your NOOK Book details. You must fix the appropriate fields before posting changes to the store."
-				log.error "can't edit book due to missing or invalid fields."
+				log.error "can't edit #{changeling["book"]["title"]} #{changeling["book"]["bnid"]} due to missing or invalid fields."
+				changeling["status"] = Booktrope::PRICE_CHANGE::META_ERROR
 				next 
 			end
 			Watir_harness.browser.text_field(:id, "prices_USD").clear
@@ -325,6 +328,7 @@ def change_prices_for_apple(change_hash)
 		Watir_harness.browser.div(:id, "pageWrapper").div(:class, "homepageWrapper").ul(:id, "main-nav").span(:text, "My Books").click
 		
 		click_my_books_menu = lambda {
+			Watir_harness.browser.link(:class, "menuopener").wait_until_present
 			Watir_harness.browser.link(:class, "menuopener").click
 			Watir_harness.browser.div(:id, "site-nav-wrapper").span(:text, "My Books").click
 		}
@@ -335,6 +339,7 @@ def change_prices_for_apple(change_hash)
 			changeling.save_perserve(["book","salesChannel"])
 			
 			search_lambda = lambda {
+				Watir_harness.browser.td(:id, "search-param-value-appleId").wait_until_present
 				Watir_harness.browser.td(:id, "search-param-value-appleId").text_field.set(changeling["book"]["appleId"])				
 				log.info "Searching for: #{changeling["book"]["appleId"]}"			
 				Watir_harness.browser.div(:id, "titleSearch").td(:class, "searchfield").button.click
@@ -642,16 +647,18 @@ end
 def convert_status_to_code(change_hash)
 	change_hash.each do | key, value |
 		case value["status"]
-		when 0
-			value["status_text"] = "Scheduled"
-		when 25
-			value["status_text"] = "Attempted"
-		when 50
-			value["status_text"] = "Unconfirmed"
-		when 99
-			value["status_text"] = "Confirmed"
-		when 404
-			value["status_text"] = "Not Found"
+		when Booktrope::PRICE_CHANGE::SCHEDULED
+			value["status_text"] = Booktrope::PRICE_CHANGE::SCHEDULED_TEXT
+		when Booktrope::PRICE_CHANGE::ATTEMPTED
+			value["status_text"] = Booktrope::PRICE_CHANGE::ATTEMPTED_TEXT
+		when Booktrope::PRICE_CHANGE::UNCONFIRMED
+			value["status_text"] = Booktrope::PRICE_CHANGE::UNCONFIRMED_TEXT
+		when Booktrope::PRICE_CHANGE::CONFIRMED
+			value["status_text"] = Booktrope::PRICE_CHANGE::CONFIRMED_TEXT
+		when Booktrope::PRICE_CHANGE::NOT_ON_STORE
+			value["status_text"] = Booktrope::PRICE_CHANGE::NOT_ON_STORE_TEXT
+		when Booktrope::PRICE_CHANGE::META_ERROR
+			value["status_text"] = Booktrope::PRICE_CHANGE::META_ERROR_TEXT
 		end
 	end
 end

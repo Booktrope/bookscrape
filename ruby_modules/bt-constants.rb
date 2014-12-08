@@ -12,11 +12,13 @@ module Booktrope
 		UNCONFIRMED = 50
 		CONFIRMED   = 99
 		NOT_ON_STORE = 404
+		META_ERROR   = 500
 		SCHEDULED_TEXT   = "Scheduled"
 		ATTEMPTED_TEXT   = "Attempted"
 		UNCONFIRMED_TEXT = "Unconfirmed"
 		CONFIRMED_TEXT   = "Confirmed"
 		NOT_ON_STORE_TEXT = "Not Found"
+		META_ERROR_TEXT  = "Meta data incorrect"
 		AMAZON_CHANNEL = "Amazon"
 		APPLE_CHANNEL  = "Apple"
 		GOOGLE_CHANNEL = "GooglePlay"
