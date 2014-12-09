@@ -2,6 +2,7 @@ require 'nokogiri'
 require 'trollop'
 require 'mailgun'
 
+
 $basePath = File.absolute_path(File.dirname(__FILE__))
 require File.join($basePath, '..', 'booktrope-modules')
 
@@ -36,73 +37,56 @@ $batch.max_requests = 50
 $rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::CREATESPACE_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj if !$opts.dontSaveToRJMetrics
 
 class_name = "Salesdata_Extraction::Createspace_reporter"
-results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
+results = Watir_harness.run(should_run_headless, class_name, lambda { | log |
 
 	results = Array.new
 	
 	url = $BT_CONSTANTS[:createspace_url]
 	
-	Selenium_harness.get(url)
+	browser = Watir_harness.browser
 	
-	username_input = Selenium_harness.find_element(:id, "loginField")
-	username_input.send_keys $BT_CONSTANTS[:createspace_username]
+	browser.goto(url)
 	
-	password_input = Selenium_harness.find_element(:id, "passwordField")
-	password_input.send_keys $BT_CONSTANTS[:createspace_password]
+	browser.text_field(:id, "loginField").wait_until_present
+	browser.text_field(:id, "loginField").set $BT_CONSTANTS[:createspace_username]
 	
-	login_button = Selenium_harness.find_element(:id, "login_button")
-	login_button.click
+	browser.text_field(:id, "passwordField").set $BT_CONSTANTS[:createspace_password]
+	browser.button(:id, "login_button").click
 	
-	report_link = Selenium_harness.find_element(:link_text, "View Detailed Royalty Report")
-	report_link.click
-	
-	royalty_by_channel = Selenium_harness.find_element(:link_text, "Royalty By Channel")
-	royalty_by_channel.click
-	
-	#sleep(5.0)
-	wait = Selenium::WebDriver::Wait.new(:timeout => 10)
-	
-	#wait.until { Selenium_harness.find_element(:id, "searchFormSection_edit") }
-	#run_new_report_button = Selenium_harness.find_element(:id, "searchFormSection_edit")
-	#puts run_new_report_button.attribute("value")
-	#run_new_report_button.click
-	
-	wait.until { Selenium_harness.find_element(:id, "member_reports_dateoptions").displayed? }
-	
-	report_select = Selenium_harness.find_element(:id, "member_reports_dateoptions")
-	report_options = report_select.find_elements(:tag_name, "option")	
-	
-	report_options.each do | option |
-		option.click if option.attribute("value") == "TODAY"
-	end
-	
-	advanced_expander = Selenium_harness.find_element(:id, "AdvancedExpander")
-	advanced_expander.click
-	
-	show_isbn = Selenium_harness.find_element(:id, "member_reports_eancolumn")
-	show_isbn.click
-	
-	show_asin = Selenium_harness.find_element(:id, "member_reports_asincolumn")
-	show_asin.click
-	
-	run_report_button = Selenium_harness.find_element(:id, "searchFormSection_save")
-	run_report_button.click
-	
-	wait.until { Selenium_harness.find_element(:css, "div#resultTable table tbody tr").displayed? }
-	
-	the_page_data = Nokogiri.parse(Selenium_harness.page_source)
+	browser.link(:text, "View Detailed Royalty Report").wait_until_present
+	browser.link(:text, "View Detailed Royalty Report").click
 
-	the_sales_table = the_page_data.css("div#resultTable table tbody tr")
-	the_sales_table.each do | row |
-		row_data = Hash.new
-		row_data[:title] = row.children[0].text.strip
-		row_data[:channel] = $amazon_channels[row.children[2].text.strip]
-		row_data[:isbn] = row.children[4].text.strip
-		row_data[:asin] = row.children[6].text.strip
-		row_data[:units_sold] = row.children[8].text.strip
-		results.push row_data
+	browser.link(:text, "Royalty By Channel").wait_until_present
+	browser.link(:text, "Royalty By Channel").click
+	
+	browser.select(:id, "member_reports_dateoptions").wait_until_present
+	
+
+	
+	browser.select(:id, "member_reports_dateoptions").options.each do | option |
+		option.select if option.value == "TODAY"
 	end
 	
+	log.info "sleeping..."
+	sleep 15.0
+	log.info "done"
+	
+	browser.div(:id, "AdvancedExpander").click
+	
+	browser.checkbox(:id, "member_reports_eancolumn").set
+	browser.checkbox(:id, "member_reports_asincolumn").set
+	browser.button(:id, "searchFormSection_save").click
+
+	browser.div(:id, "resultTable").table.tbody.wait_until_present
+	browser.div(:id, "resultTable").table.tbody.trs.each do | row |
+		row_data = Hash.new
+		row_data[:title] = row.tds[0].text.strip
+		row_data[:channel] = $amazon_channels[row.tds[1].text.strip]
+		row_data[:isbn] = row.tds[2].text.strip
+		row_data[:asin] = row.tds[3].text.strip
+		row_data[:units_sold] = row.tds[4].text.strip
+		results.push row_data		
+	end	
 	return results
 })
 
@@ -139,7 +123,8 @@ def save_sales_data_to_parse(results)
 		daily_sales = result[:units_sold].to_i
 			
 		#setting the crawl date
-		crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/%d")+" "+Time.now().strftime("%H:%M:%S"))
+		#crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/%d")+" "+Time.now().strftime("%H:%M:%S"))
+		crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/17")+" "+Time.now().strftime("23:35:00"))
 	
 		#getting the book object to link the amazon_sales_data to.
 		book = book_hash[result[:asin]]
@@ -160,7 +145,7 @@ def save_sales_data_to_parse(results)
 		cs_sales_data["country"] = result[:channel]
 		cs_sales_data["crawlDate"] = crawl_date
 		cs_sales_data["dailySales"] = daily_sales
-		$batch.create_object_run_when_full! cs_sales_data if !$opts.dontSaveToParse
+		$batch.create_object_run_when_full! cs_sales_data if !$opts.dontSaveToParse		
 		pushdata_to_rj(cs_sales_data, ["country", "dailySales"]) if !$opts.dontSaveToRJMetrics
 	end	
 end

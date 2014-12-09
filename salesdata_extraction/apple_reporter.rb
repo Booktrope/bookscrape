@@ -53,6 +53,8 @@ Watir_harness.run(should_run_headless, class_name, lambda { | log |
 
 	Watir_harness.browser.link(:class, "btn-signin").click
 	
+	#Watir_harness.browser.goto "https://reportingitc2.apple.com/?"
+	sleep 5.0
 	Watir_harness.browser.goto "https://reportingitc2.apple.com/reports.html"
 	
 	Watir_harness.browser.button(:xpath => "//div[@id='reportGroups']/div[2]/div[5]/div/button").wait_until_present
