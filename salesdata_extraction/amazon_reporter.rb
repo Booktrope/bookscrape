@@ -42,41 +42,41 @@ $batch = Parse::Batch.new
 $batch.max_requests = 50
 
 class_name = "Salesdata_Extraction::Amazon_reporter"
-results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
+results = Watir_harness.run(should_run_headless, class_name, lambda { | log |
+	
+	browser = Watir_harness.browser
 	
 	url = $BT_CONSTANTS[:amazon_kdp_url]
 	
 	#getting the amazon kdp page
-	Selenium_harness.get(url)
+	browser.goto url
 	
 	#clicking the login button
-	sign_button = Selenium_harness.find_element(:css, "a.a-button-text")
-	sign_button.click
+	browser.link(:class, "a-button-text").click
 	
 	#entering the username and password
-	username_input = Selenium_harness.find_element(:id, "ap_email")
-	username_input.send_keys $BT_CONSTANTS[:amazon_kdp_username]
-	
-	password_input = Selenium_harness.find_element(:id, "ap_password")
-	password_input.send_keys $BT_CONSTANTS[:amazon_kdp_password]
+	browser.text_field(:id, "ap_email").wait_until_present
+	browser.text_field(:id, "ap_email").set $BT_CONSTANTS[:amazon_kdp_username]
+
+	browser.text_field(:id, "ap_password").set $BT_CONSTANTS[:amazon_kdp_password]
+
 	
 	#clicking the login button
-	login_button = Selenium_harness.find_element(:id, "signInSubmit-input")
-	login_button.click
+	browser.button(:id, "signInSubmit-input").click
+
 	
 	#clicking on the reports button
-	report_link = Selenium_harness.find_element(:link_text, "Reports")
-	report_link.click
+	browser.link(:text, "Reports").wait_until_present
+	browser.link(:text, "Reports").click
 	
 	sleep(5.0)
 	
 	#clicking on the month to date sales
-	month_to_date_sales_link = Selenium_harness.find_element(:id, "mtdLink")
-	month_to_date_sales_link.click
-	
-	wait = Selenium::WebDriver::Wait.new(:timeout => 60)
-	wait.until { Selenium_harness.find_element(:css, "table#promotionTransactionsReports tbody tr").displayed? }
-	
+	browser.link(:id, "mtdLink").wait_until_present
+	browser.link(:id, "mtdLink").click
+
+	browser.table(:id, "promotionTransactionsReports").tbody.wait_until_present
+		
 	#The country that appears first is US so we set it to US.
 	country = "US"
 	
@@ -85,15 +85,14 @@ results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 	#declaring our lambda function since we need to run this code both outside and inside the loop.
 	#sure we can do it with a loop but closures are fun too.
 	print_lambda = lambda { | extraction_array |
-		report_page = Nokogiri.parse(Selenium_harness.page_source)
-		promo_table_rows = report_page.css("table#promotionTransactionsReports tbody tr")
-		promo_table_rows.each do | row |
-			break if row.children.size < 9
+	
+		browser.table(:id, "promotionTransactionsReports").tbody.trs.each do | row |
+			break if row.tds.size < 9
 			extraction_data = Hash.new
-			extraction_data[:title]      = row.children[1].text
-			extraction_data[:asin]       = row.children[2].text
-			extraction_data[:net_sales]  = row.children[5].text
-			extraction_data[:force_free] = row.children[8].text
+			extraction_data[:title]      = row.tds[1].text
+			extraction_data[:asin]       = row.tds[2].text
+			extraction_data[:net_sales]  = row.tds[5].text
+			extraction_data[:force_free] = row.tds[8].text
 			extraction_data[:country]    = country
 			extraction_array.push(extraction_data)
 		end
@@ -106,14 +105,12 @@ results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
 	sleep(5.0)
 
 	#getting the dropdown for country stores and looping through each country
-	report_select = Selenium_harness.find_element(:id, "marketplaceSelect")
-	report_options = report_select.find_elements(:tag_name, "option")
-	report_options.each do | option |
-		next if option.attribute("value") == "US"
+	browser.select(:id, "marketplaceSelect").options.each do | option |
+		next if option.value == "US"
 		extraction_data = Hash.new
-		country = option.attribute("value")
+		country = option.value
 		
-		option.click
+		option.select
 		sleep(5.0)
 		
 		results.concat(print_lambda.call(Array.new))
@@ -172,7 +169,7 @@ def save_sales_data_to_parse(results)
 		
 		#setting the crawl date
 		crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/%d")+" "+Time.now().strftime("23:55:00"))
-		#crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/26")+" "+Time.now().strftime("11:55:00"))	
+		#crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/07")+" "+Time.now().strftime("23:55:00"))	
 	
 		#checking to see if we have a record from the previous day only if it's not the first of the month.
 		if Date.today.day != 1
