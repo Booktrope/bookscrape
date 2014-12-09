@@ -36,68 +36,57 @@ $batch.max_requests = 50
 $rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::NOOK_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj if !$opts.dontSaveToRJMetrics
 
 class_name = "Salesdata_Extraction::Nookpress_reporter"
-results = Selenium_harness.run(should_run_headless, class_name, lambda { | log |
+results = Watir_harness.run(should_run_headless, class_name, lambda { | log |
 
 	results = Array.new
 
 	url = $BT_CONSTANTS[:nookpress_url]
 	
+	browser = Watir_harness.browser
+	
 	#requesting the page
-	Selenium_harness.get(url)
+	browser.goto(url)
 	
 	#finding and clicking the login button
-	upper_login_button = Selenium_harness.find_element(:id, "clickclick")
-	upper_login_button.click
+	browser.link(:id, "clickclick").wait_until_present
+	browser.link(:id, "clickclick").click
 	
 	#entering credentials
-	username_input = Selenium_harness.find_element(:id, "email")
-	username_input.send_keys $BT_CONSTANTS[:nookpress_username]
+	browser.text_field(:id, "email").wait_until_present
+	browser.text_field(:id, "email").set $BT_CONSTANTS[:nookpress_username]
+
+	browser.text_field(:id, "password").set $BT_CONSTANTS[:nookpress_password]
 	
-	password_input = Selenium_harness.find_element(:id, "password")
-	password_input.send_keys $BT_CONSTANTS[:nookpress_password]
 	
 	#clicking on the login button
-	login_button = Selenium_harness.find_element(:id, "login_button")
-	login_button.click
-	
-	wait = Selenium::WebDriver::Wait.new(:timeout => 5)
+	browser.button(:id, "login_button").click
+
 
 	#wait for the Sales link to appear and then click on it.
-	wait.until { Selenium_harness.find_element(:link_text, "Sales").displayed? }	
+	browser.link(:text, "Sales").wait_until_present
+	browser.link(:text, "Sales").click
 	
-	sales_link = Selenium_harness.find_element(:link_text, "Sales")
-	sales_link.click
-	
-	#clicking on the monthly sales reports link
-	#wait.until { Selenium_harness.find_element(:link_text, "Monthly Sales Reports") }
 
-	#clicking on the Recent Sales link
-	wait.until { Selenium_harness.find_element(:link_text, "Recent Sales").displayed? }
+	#clicking on the Recent Sales link	
+	browser.link(:text, "Recent Sales").wait_until_present
+	browser.link(:text, "Recent Sales").click
 	
-	recent_sales = Selenium_harness.find_element(:link_text, "Recent Sales")
-	recent_sales.click
-	
-	wait.until { Selenium_harness.find_element(:xpath, "//table[@id='sales-report']/tbody/tr").displayed? }
+	browser.table(:id, "sales-report").wait_until_present
 	
 	current_date = Date.parse(Time.now.to_s)
 	
-	
-	the_page_data = Nokogiri.parse(Selenium_harness.page_source)
-	the_sales_table = the_page_data.css("//table[@id='sales-report']/tbody/tr")
-	
-	the_sales_table.each do | row |
-	
+	browser.table(:id, "sales-report").tbody.trs.each do | row |
 		#since this script runs before the current day is over, we don't want to grab 
 		#today's stats since we could miss sales for that day, so we skip those and pull them tomorrow.
-		next if Date.strptime(row.children[0].text.strip, "%m/%d/%Y").day == current_date.day
+		next if Date.strptime(row.tds[0].text.strip, "%m/%d/%Y").day == current_date.day
 	
 		row_hash = Hash.new
-		row_hash[:date]       = row.children[0].text.strip
-		row_hash[:bn_id]      = row.children[4].text.strip
-		row_hash[:isbn]       = row.children[6].text.strip
-		row_hash[:title]      = row.children[8].text.strip
-		row_hash[:country]    = row.children[12].text
-		row_hash[:units_sold] = row.children[18].text
+		row_hash[:date]       = row.tds[0].text.strip
+		row_hash[:bn_id]      = row.tds[2].text.strip
+		row_hash[:isbn]       = row.tds[3].text.strip
+		row_hash[:title]      = row.tds[4].text.strip
+		row_hash[:country]    = row.tds[6].text.strip
+		row_hash[:units_sold] = row.tds[9].text.strip
 		results.push row_hash
 	end
 	return results
@@ -170,7 +159,7 @@ def pushdata_to_rj(nook_sales_data, fields)
 end
 
 def send_report_email(results)
-	top = "Nookpress Sales Numbers for #{results[0][:date]} PST<br />\n<br />\n"
+	top = "Nookpress Sales Numbers for #{results[0][:date]}<br />\n<br />\n"
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	email_parameters = {
 		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, kelsey@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
