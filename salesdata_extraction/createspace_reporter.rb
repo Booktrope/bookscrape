@@ -167,7 +167,7 @@ def send_report_email(results)
 	top = "Createspace Sales Numbers for #{Date.today} PST<br />\n<br />\n"
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	email_parameters = {
-		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, kelsey@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
+		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, kelsey@booktrope.com, Jen <jennifer.gilbert@booktrope.com>, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
 		:from    =>	'"Booktrope Daily Crawler 2.0" <justin.jeffress@booktrope.com>',
 		:subject => 'Createspace Sales Numbers',
 		:html    => top + Mail_helper.alternating_table_body(results.sort_by{ |k| k[:units_sold] }.reverse, "isbn" => :isbn, "Title" => :title, "Country" => :channel, "Daily Sales" => :units_sold, :total => [:units_sold])
