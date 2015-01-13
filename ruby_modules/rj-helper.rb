@@ -45,8 +45,12 @@ module Booktrope
 		end
 		
 		def pushData
-			pp @rj_client.pushData @table_name, self.data, ((@is_sandbox) ? RJMetrics::Client::SANDBOX_BASE : RJMetrics::Client::API_BASE)
+			result = @rj_client.pushData @table_name, self.data, ((@is_sandbox) ? RJMetrics::Client::SANDBOX_BASE : RJMetrics::Client::API_BASE)
+			pp result
+			puts result.class
+			puts result.first
 			@data = Array.new		 
+			result
 		end
 
 	end

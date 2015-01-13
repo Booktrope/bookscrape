@@ -79,21 +79,23 @@ results = Watir_harness.run(should_run_headless, class_name, lambda { | log |
 		
 	#The country that appears first is US so we set it to US.
 	country = "US"
-	
+	log.info country
 	results = Array.new
 	
 	#declaring our lambda function since we need to run this code both outside and inside the loop.
 	#sure we can do it with a loop but closures are fun too.
 	print_lambda = lambda { | extraction_array |
-	
+		sleep 5.0
+		browser.table(:id, "promotionTransactionsReports").tbody.wait_until_present
 		browser.table(:id, "promotionTransactionsReports").tbody.trs.each do | row |
 			break if row.tds.size < 9
 			extraction_data = Hash.new
-			extraction_data[:title]      = row.tds[1].text
-			extraction_data[:asin]       = row.tds[2].text
-			extraction_data[:net_sales]  = row.tds[5].text
-			extraction_data[:force_free] = row.tds[8].text
-			extraction_data[:country]    = country
+			extraction_data[:title]         = row.tds[1].text
+			extraction_data[:asin]          = row.tds[2].text
+			extraction_data[:net_sales]     = row.tds[5].text
+			extraction_data[:kdp_unlimited] = row.tds[6].text
+			extraction_data[:force_free]    = row.tds[8].text
+			extraction_data[:country]       = country
 			extraction_array.push(extraction_data)
 		end
 		return extraction_array
@@ -107,6 +109,7 @@ results = Watir_harness.run(should_run_headless, class_name, lambda { | log |
 	#getting the dropdown for country stores and looping through each country
 	browser.select(:id, "marketplaceSelect").options.each do | option |
 		next if option.value == "US"
+		log.info country
 		extraction_data = Hash.new
 		country = option.value
 		
@@ -165,11 +168,13 @@ def save_sales_data_to_parse(results)
 	results.each do | result |
 		
 		net_sales = result[:net_sales].to_i
+		net_kdp_unlimited = result[:kdp_unlimited].to_i
 		daily_sales = net_sales
+		daily_kdp_unlimited = net_kdp_unlimited
 		
 		#setting the crawl date
-		crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/%d")+" "+Time.now().strftime("23:55:00"))
-		#crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/07")+" "+Time.now().strftime("23:55:00"))	
+		#crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/%d")+" "+Time.now().strftime("23:55:00"))
+		crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/04")+" "+Time.now().strftime("23:55:00"))	
 	
 		#checking to see if we have a record from the previous day only if it's not the first of the month.
 		if Date.today.day != 1
@@ -187,10 +192,12 @@ def save_sales_data_to_parse(results)
 		#amazon tracks month to date sales, so we need to subtract yesterday's net from today's
 		if !old_sales_data.nil?
 			daily_sales = net_sales - old_sales_data["netSales"].to_i
+			kdp_unlimited = net_kdp_unlimited - old_sales_data["netKdpUnlimited"].to_i
 			puts "daily sales: #{daily_sales}"
 		end
 	
 		result[:daily_sales] = daily_sales
+		result[:daily_kdp_unlimited] = kdp_unlimited
 	
 		#getting the book object to link the amazon_sales_data to.
 		book = book_hash[result[:asin]]
@@ -199,14 +206,16 @@ def save_sales_data_to_parse(results)
 		amazon_sales_data["book"] = book
 		amazon_sales_data["asin"] = result[:asin]
 		amazon_sales_data["netSales"] = net_sales
+		amazon_sales_data["netKdpUnlimited"] = net_kdp_unlimited
 		amazon_sales_data["forceFree"] = result[:force_free].to_i
 		amazon_sales_data["country"] = result[:country]
 		amazon_sales_data["crawlDate"] = crawl_date
 		amazon_sales_data["dailySales"] = daily_sales
+		amazon_sales_data["dailyKdpUnlimited"] = kdp_unlimited
 				
 		
 		$batch.create_object_run_when_full!(amazon_sales_data) if !$opts.dontSaveToParse
-		prepare_or_push_data_to_rjmetrics(amazon_sales_data, ["dailySales", "netSales", "country", "forceFree"]) if !$opts.dontSaveToRJMetrics && amazon_sales_data["dailySales"] > 0
+		prepare_or_push_data_to_rjmetrics(amazon_sales_data, ["dailySales", "netSales", "dailyKdpUnlimited", "netKdpUnlimited", "country", "forceFree"]) if !$opts.dontSaveToRJMetrics && amazon_sales_data["dailySales"] > 0
 		
 		sleep 2.0
 	end
@@ -214,13 +223,13 @@ end
 
 
 def send_report_email(results)
-	top = "Amazon Sales Numbers for #{Date.today} PST<br />\n<br />\n"
+	top = "Amazon Sales Numbers for #{Date.today-1} PST<br />\n<br />\n"
 	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
 	email_parameters = {
-		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, kelsey@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
+		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, kelsey@booktrope.com, Jen <jennifer.gilbert@booktrope.com>, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>, Stephanie Konat <stephanie.konat@booktrope.com>',
 		:from    =>	'"Booktrope Daily Crawler 2.0" <justin.jeffress@booktrope.com>',
 		:subject => 'Amazon Sales Numbers',
-		:html    => top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:daily_sales]}.reverse, "asin" => :asin, "Title" => :title, "Country" => :country, "Daily Sales" => :daily_sales, "Month To Date" => :net_sales, "Force Free" => :force_free, :total => [:daily_sales, :net_sales, :force_free])
+		:html    => top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:daily_sales]}.reverse, "asin" => :asin, "Title" => :title, "Country" => :country, "Daily Sales" => :daily_sales, "Month To Date" => :net_sales, "Daily KDP Unlimited" => :daily_kdp_unlimited, "Month To Date (KDP Unlimited)" => :kdp_unlimited, "Force Free" => :force_free, :total => [:daily_sales, :net_sales, :daily_kdp_unlimited, :kdp_unlimited, :force_free])
 	}
 
 	mailgun.messages.send_email(email_parameters)
