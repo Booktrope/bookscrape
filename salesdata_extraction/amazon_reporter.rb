@@ -1,27 +1,25 @@
 require 'nokogiri'
 require 'trollop'
-require 'mailgun'
 
 $basePath = File.absolute_path(File.dirname(__FILE__))
 require File.join($basePath, '..', 'booktrope-modules')
 
 $opts = Trollop::options do
 
-   banner <<-EOS
+	banner <<-EOS
 Extracts book sales data from Amazon KDP
 
 	Usage:
             ruby amazon_reporter.rb [--dontSaveToParse] [--headless]
 	EOS
-   
-   opt :parseDev, "Sets parse environment to dev", :short => 'd'
-   opt :suppressMail, "Suppresses the compeletion email", :short=> 's'
+	
+	opt :parseDev, "Sets parse environment to dev", :short => 'd'
+	opt :suppressMail, "Suppresses the compeletion email", :short=> 's'
 	opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
 	opt :testRJMetrics, "Use RJMetrics test", :short => 't'
 	opt :dontSaveToParse, "Turns off parse", :short => 'x'
-   opt :headless, "Runs headless", :short => 'h'
-   version "2.0.0 2014 Justin Jeffress"
-
+	opt :headless, "Runs headless", :short => 'h'
+	version "2.0.0 2014 Justin Jeffress"
 end
 
 should_run_headless = ($opts.headless) ?  true : false
@@ -103,7 +101,6 @@ results = Watir_harness.run(should_run_headless, class_name, lambda { | log |
 	
 	#extracting the data from the US
 	results.concat(print_lambda.call(Array.new))
-
 	sleep(5.0)
 
 	#getting the dropdown for country stores and looping through each country
@@ -173,8 +170,8 @@ def save_sales_data_to_parse(results)
 		daily_kdp_unlimited = net_kdp_unlimited
 		
 		#setting the crawl date
-		#crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/%d")+" "+Time.now().strftime("23:55:00"))
-		crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/04")+" "+Time.now().strftime("23:55:00"))	
+		crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/%d")+" "+Time.now().strftime("23:55:00"))
+		#crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/17")+" "+Time.now().strftime("23:55:00"))	
 	
 		#checking to see if we have a record from the previous day only if it's not the first of the month.
 		if Date.today.day != 1
@@ -221,23 +218,19 @@ def save_sales_data_to_parse(results)
 	end
 end
 
-
 def send_report_email(results)
-	top = "Amazon Sales Numbers for #{Date.today-1} PST<br />\n<br />\n"
-	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
-	email_parameters = {
-		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, kelsey@booktrope.com, Jen <jennifer.gilbert@booktrope.com>, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>, Stephanie Konat <stephanie.konat@booktrope.com>',
-		:from    =>	'"Booktrope Daily Crawler 2.0" <justin.jeffress@booktrope.com>',
-		:subject => 'Amazon Sales Numbers',
-		:html    => top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:daily_sales]}.reverse, "asin" => :asin, "Title" => :title, "Country" => :country, "Daily Sales" => :daily_sales, "Month To Date" => :net_sales, "Daily KDP Unlimited" => :daily_kdp_unlimited, "Month To Date (KDP Unlimited)" => :kdp_unlimited, "Force Free" => :force_free, :total => [:daily_sales, :net_sales, :daily_kdp_unlimited, :kdp_unlimited, :force_free])
-	}
 
-	mailgun.messages.send_email(email_parameters)
+	report = "amazon_report"
+	top = "Amazon Sales Numbers for #{Date.today-1} PST<br />\n<br />\n"
+	subject = 'Amazon Sales Numbers'
+	Booktrope::MailHelper.send_report_email(report, subject, top, results.sort_by{ |k| k[:daily_sales] }.reverse, "asin" => :asin, "Title" => :title, "Country" => :country, "Daily Sales" => :daily_sales, "Month To Date" => :net_sales, "Daily KDP Unlimited" => :daily_kdp_unlimited, "Month To Date (KDP Unlimited)" => :kdp_unlimited, "Force Free" => :force_free, :total => [:daily_sales, :net_sales, :daily_kdp_unlimited, :kdp_unlimited, :force_free])
+
 end
 
 if !results.nil? && results.count > 0   
 	save_sales_data_to_parse(results)
-	send_report_email(results) if !$opts.suppressMail
+	
+	send_report_email(results) unless $opts.suppressMail
 end
 
 if $batch.requests.length > 0

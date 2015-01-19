@@ -6,19 +6,18 @@ require File.join($basePath, '..', 'booktrope-modules')
 
 $opts = Trollop::options do
 
-   banner <<-EOS
+  banner <<-EOS
 Extracts book sales data from Lightning Source
 
    Usage:
             ruby lightning_reporter.rb [--dontSaveToParse] [--testRJMetrics] [--headless]
    EOS
    
-   opt :testRJMetrics, "Use RJMetrics test", :short => 't'
-   opt :dontSaveToParse, "Turns off parse", :short => 'x'
-   opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
-   opt :headless, "Runs headless", :short => 'h'
-   version "2.0.0 2014 Justin Jeffress"
-
+  opt :testRJMetrics, "Use RJMetrics test", :short => 't'
+  opt :dontSaveToParse, "Turns off parse", :short => 'x'
+  opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
+  opt :headless, "Runs headless", :short => 'h'
+  version "2.0.0 2014 Justin Jeffress"
 end
 
 should_run_headless = ($opts.headless) ?  true : false
@@ -140,15 +139,12 @@ def pushdata_to_rj(lightning_data, fields)
 end
 
 def send_report_email(results)
+
+	report = "lightning_report"
+	subject = 'Lightning Source Sales Numbers'
 	top = "Lightning Source Sales Numbers for #{results[0][:crawl_date]} PST<br /><br />\n"
-	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
-	email_parameters = {
-		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, kelsey@booktrope.com, Jen <jennifer.gilbert@booktrope.com>, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
-		:from    =>	'"Booktrope Daily Crawler 2.5" <justin.jeffress@booktrope.com>',
-		:subject => 'Lightning Source Sales Numbers',
-		:html    => top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:net_quantity] }.reverse, "ISBN" => :isbn, "Title" => :title, "Country" => :country,  "Daily Sales" => :quantity_sold, "Returned" => :quantity_returned, "Net Sales" => :net_quantity, :total => [:quantity_sold, :quantity_returned, :net_quantity])
-	}
-	mailgun.messages.send_email(email_parameters)
+	Booktrope::MailHelper.send_report_email(report, subject, top, results.sort_by{ |k| k[:net_quantity] }.reverse, "ISBN" => :isbn, "Title" => :title, "Country" => :country,  "Daily Sales" => :quantity_sold, "Returned" => :quantity_returned, "Net Sales" => :net_quantity, :total => [:quantity_sold, :quantity_returned, :net_quantity])
+
 end
 
 if !results.nil? && results.count > 0

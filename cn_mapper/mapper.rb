@@ -11,21 +11,16 @@ $log = Bt_logging.create_logging('cn_mapper::Mapper')
 
 $BT_CONSTANTS = Booktrope::Constants.instance
 
-Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
-	        :api_key        => $BT_CONSTANTS[:parse_api_key]
+Booktrope::ParseHelper.init_production
 
-#TODO: create a better way to manage TO/FROM emails
 def send_report_email(body)
+	
+	report = "cn_mapper"
 	top = "We were unable to map daily sales data to a book for the following sales records #{Date.today} PST <br /><br />\n"
 	top += "Please add the control numbers below to the corresponding project in teamtrope.<br /><br />"
-	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
-	email_parameters = {
-		:to      => 'Justin Jeffress <justin.jeffress@booktrope.com>, Andy Roberts <andy@booktrope.com>, Kelsey Wong <kelsey@booktrope.com>', #, Adam Bodendieck <adam.bodendieck@booktrope.com>',
-		:from    =>	'"Booktrope Mapper" <justin.jeffress@booktrope.com>',
-		:subject => 'Unable to Map Sales Data to Book',
-		:html    => top + body
-	}
-	mailgun.messages.send_email(email_parameters)
+	subject = 'Unable to Map Sales Data to Book'
+	Booktrope::MailHelper.send_report_email(report, subject, top + body, [])
+		
 end
 
 
@@ -127,7 +122,7 @@ def map_no_book_sales_to_book_per_channel(sales_channels_to_map)
 		cn_text = channel[:control_number_title]
 		
 		body += "<h2>#{channel[:title]}</h2>\n<br />\n"
-		body += Mail_helper.alternating_table_body(not_found, "Parse Object ID" => :object_id, cn_text => :cn, "URL" => :url)
+		body += Booktrope::MailHelper.alternating_table_body(not_found, "Parse Object ID" => :object_id, cn_text => :cn, "URL" => :url)
 	end
 	send_report_email body if body.length > 0
 end
