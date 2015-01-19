@@ -7,20 +7,15 @@ require File.join($basePath, '..', 'booktrope-modules')
 
 $BT_CONSTANTS = Booktrope::Constants.instance
 
-Parse.init :application_id => $BT_CONSTANTS[:parse_application_id],
-	        :api_key        => $BT_CONSTANTS[:parse_api_key]
+Booktrope::ParseHelper.init_production
 
 def send_report_email(results)
+	
+	report = "not_found_report"
 	top = "The following books were not found for sale on the iTunes Store on #{Date.today} PST<br />\n<br />\n"
-	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
-	email_parameters = {
-		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, kelsey@booktrope.com', #, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
-		:from    =>	'"Booktrope iBooks Reporter 1.0" <justin.jeffress@booktrope.com>',
-		:subject => 'Apple Analytics - Books Not Found',
-		:html    => top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:title] }, "Title" => :title, "Reason" => :reason, "asin" => :asin, "epub iTunes" => :epubIsbnItunes, "Apple ID" => :appleId)
-	}
-
-	mailgun.messages.send_email(email_parameters)
+	subject = 'Apple Analytics - Books Not Found'
+	Booktrope::MailHelper.send_report_email(report, subject, top, results.sort_by{|k| k[:title] }, "Title" => :title, "Reason" => :reason, "asin" => :asin, "epub iTunes" => :epubIsbnItunes, "Apple ID" => :appleId)
+		
 end
 
 def clear_not_found_table(not_found)

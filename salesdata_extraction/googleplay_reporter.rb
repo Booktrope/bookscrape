@@ -9,20 +9,19 @@ require File.join($basePath, '..', 'booktrope-modules')
 
 $opts = Trollop::options do
 
-   banner <<-EOS
+  banner <<-EOS
 Extracts book sales data from google play
 
    Usage:
             ruby googleplay_reporter.rb [--dontSaveToParse] [--headless]
    EOS
-   
-   opt :testRJMetrics, "Use RJMetrics test", :short => 't'
-   opt :dontSaveToParse, "Turns off parse", :short => 'x'
-   opt :downloadFolder, "The folder to save the report file from google play into.", :type => :string, :short => 'd'
-   opt :archiveFolder, "The archive folder to drop the unzipped file into for posterity", :type => :string, :short => 'a'   
-   opt :headless, "Runs headless", :short => 'h'
-   version "1.0.0 2014 Justin Jeffress"
 
+  opt :testRJMetrics, "Use RJMetrics test", :short => 't'
+  opt :dontSaveToParse, "Turns off parse", :short => 'x'
+  opt :downloadFolder, "The folder to save the report file from google play into.", :type => :string, :short => 'd'
+  opt :archiveFolder, "The archive folder to drop the unzipped file into for posterity", :type => :string, :short => 'a'   
+  opt :headless, "Runs headless", :short => 'h'
+  version "1.0.0 2014 Justin Jeffress"
 end
 	
 should_run_headless = ($opts.headless) ?  true : false
@@ -154,16 +153,12 @@ def pushdata_to_rj(google_sales_data, fields)
 end
 
 def send_report_email(results)
-	top = "Google Play Sales Numbers for #{results[0][:crawl_date]} PST<br />\n<br />\n"
-	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
-	email_parameters = {
-		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, kelsey@booktrope.com, Jen <jennifer.gilbert@booktrope.com>, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
-		:from    =>	'"Booktrope Daily Crawler 2.0" <justin.jeffress@booktrope.com>',
-		:subject => 'Google Play Sales Numbers',
-		:html    => top + Mail_helper.alternating_table_body(results.sort_by{ |k| k[:units_sold].to_i }.reverse, "ISBN" => :isbn, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold, :total => [:units_sold])
-	}
 
-	mailgun.messages.send_email(email_parameters)
+	report = "googleplay_report"
+	subject = 'Google Play Sales Numbers'
+	top = "Google Play Sales Numbers for #{results[0][:crawl_date]} PST<br />\n<br />\n"
+	Booktrope::MailHelper.send_report_email(report, subject, top, results.sort_by{ |k| k[:units_sold].to_i }.reverse, "ISBN" => :isbn, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold, :total => [:units_sold])
+
 end
 
 $book_hash = get_book_hash()

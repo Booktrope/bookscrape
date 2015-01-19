@@ -6,8 +6,7 @@ require File.join(basePath, '..', 'booktrope-modules')
 
 BT_CONSTANTS = Booktrope::Constants.instance
 
-Parse.init :application_id => BT_CONSTANTS[:parse_application_id],
-	        :api_key        => BT_CONSTANTS[:parse_api_key]
+Booktrope::ParseHelper.init_production
 
 $rjClient = Booktrope::RJHelper.new "booktrope_parse", ["teamtropeId", "parseId"], true
 

@@ -8,18 +8,17 @@ require File.join($basePath, '..', 'booktrope-modules')
 
 $opts = Trollop::options do
 
-   banner <<-EOS
+  banner <<-EOS
 Extracts book sales data from createspace
 
    Usage:
             ruby createspace_reporter.rb [--dontSaveToParse] [--headless]
    EOS
-
-	opt :testRJMetrics, "Use RJMetrics test", :short => 't'
-   opt :dontSaveToParse, "Turns off parse", :short => 'x'
-   opt :headless, "Runs headless", :short => 'h'
-   version "2.0.0 2014 Justin Jeffress"
-
+   
+  opt :testRJMetrics, "Use RJMetrics test", :short => 't'
+  opt :dontSaveToParse, "Turns off parse", :short => 'x'
+  opt :headless, "Runs headless", :short => 'h'
+  version "2.0.0 2014 Justin Jeffress"
 end
 
 $amazon_channels = {"Amazon" => "US", "Amazon Europe - GBP" => "GB", "Amazon Europe - EUR" => "EU" }
@@ -164,16 +163,12 @@ def pushdata_to_rj(cs_sales_data, fields)
 end
 
 def send_report_email(results)
-	top = "Createspace Sales Numbers for #{Date.today} PST<br />\n<br />\n"
-	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
-	email_parameters = {
-		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, kelsey@booktrope.com, Jen <jennifer.gilbert@booktrope.com>, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
-		:from    =>	'"Booktrope Daily Crawler 2.0" <justin.jeffress@booktrope.com>',
-		:subject => 'Createspace Sales Numbers',
-		:html    => top + Mail_helper.alternating_table_body(results.sort_by{ |k| k[:units_sold] }.reverse, "isbn" => :isbn, "Title" => :title, "Country" => :channel, "Daily Sales" => :units_sold, :total => [:units_sold])
-	}
 
-	mailgun.messages.send_email(email_parameters)
+	report = "createspace_report"
+	subject = 'Createspace Sales Numbers'
+	top = "Createspace Sales Numbers for #{Date.today} PST<br />\n<br />\n"
+	Booktrope::MailHelper.send_report_email(report, subject, top, results.sort_by{ |k| k[:units_sold] }.reverse, "isbn" => :isbn, "Title" => :title, "Country" => :channel, "Daily Sales" => :units_sold, :total => [:units_sold])
+
 end
 
 if !results.nil? && results.count > 0

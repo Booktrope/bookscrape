@@ -9,21 +9,20 @@ require File.join($basePath, '..', 'booktrope-modules')
 
 $opts = Trollop::options do
 
-   banner <<-EOS
+	banner <<-EOS
 Extracts book sales data from iTunes Connect by downloading the report file, uncompressing it,
 and parsing the TSV file using ruby CSV. The data is then saved into parse.com
    Usage:
             ruby apple_reporter.rb [--dontSaveToParse] [--headless] -- dropFolder file_path --archiveFolder file_path
    EOS
-
-	opt :testRJMetrics, "Use RJMetrics test", :short => 't'
-	opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
-   opt :dontSaveToParse, "Turns off parse", :short => 'x'
-   opt :headless, "Runs headless", :short => 'h'
-   opt :downloadFolder, "The archive folder to drop the unzipped file into for posterity", :type => :string, :short => 'd'
-   opt :archiveFolder, "The folder to save the report file from iTunes Connect into.", :type => :string, :short => 'a'
-   version "2.0.0 2014 Justin Jeffress"
-
+   
+  opt :testRJMetrics, "Use RJMetrics test", :short => 't'
+  opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
+  opt :dontSaveToParse, "Turns off parse", :short => 'x'
+  opt :headless, "Runs headless", :short => 'h'
+  opt :downloadFolder, "The archive folder to drop the unzipped file into for posterity", :type => :string, :short => 'd'
+  opt :archiveFolder, "The folder to save the report file from iTunes Connect into.", :type => :string, :short => 'a'
+  version "2.0.0 2014 Justin Jeffress"
 end
 
 should_run_headless = ($opts.headless) ? true : false
@@ -57,9 +56,9 @@ Watir_harness.run(should_run_headless, class_name, lambda { | log |
 	sleep 5.0
 	Watir_harness.browser.goto "https://reportingitc2.apple.com/reports.html"
 	
-	Watir_harness.browser.button(:xpath => "//div[@id='reportGroups']/div[2]/div[5]/div/button").wait_until_present
+	Watir_harness.browser.button(:class => "primary-", :class => "download").wait_until_present
 	sleep 5.0
-	Watir_harness.browser.button(:xpath => "//div[@id='reportGroups']/div[2]/div[5]/div/button").click
+	Watir_harness.browser.buttons(:class => "primary-", :class => "download").last.click
 	sleep(5.0)
 	while !Dir.glob($opts.downloadFolder+"*.part").empty?
 		sleep(5.0)
@@ -92,16 +91,11 @@ end
 
 def send_report_email(results)
 
+	report = "test"
 	top = "Apple Sales Numbers for #{results[0][:crawl_date]} PST <br /><br />\n"
-	mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
-	email_parameters = {
-		:to      => 'justin.jeffress@booktrope.com, andy@booktrope.com, kelsey@booktrope.com,Jen <jennifer.gilbert@booktrope.com>, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
-		:from    =>	'"Booktrope Daily Crawler 2.0" <justin.jeffress@booktrope.com>',
-		:subject => 'Apple Sales Numbers',
-		:html    => top + Mail_helper.alternating_table_body(results.sort_by{|k| k[:units_sold]}.reverse, "Apple ID" => :apple_id, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold, :total => [:units_sold])
-	}
+	subject = 'Apple Sales Numbers'
+	Booktrope::MailHelper.send_report_email(report, subject, top, results.sort_by{ |k| k[:units_sold] }, "Apple ID" => :apple_id, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold, :total => [:units_sold])
 
-	mailgun.messages.send_email(email_parameters)
 end
 
 def process_zip_file(zip_path)
