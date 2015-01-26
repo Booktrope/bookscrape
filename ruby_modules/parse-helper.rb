@@ -2,23 +2,39 @@ basePath = File.absolute_path(File.dirname(__FILE__))
 require File.join(basePath, "parse-ruby-client-monkey")
 module Booktrope
 	class ParseHelper
+	
+		$parse_initialized = false
+		
+		#generic initializer
 		def ParseHelper.init(data = {})
 			Parse.init(data)
+			$parse_initialized = true
 		end
 		
+		# initializer for dev
 		def ParseHelper.init_development()
 			constants = Booktrope::Constants.instance
-			Parse.init :application_id => constants[:parse_dev_application_id],
-	                 :api_key        => constants[:parse_dev_api_key]
-
+	    ParseHelper.init(:application_id => constants[:parse_dev_application_id],
+	    		             :api_key        => constants[:parse_dev_api_key])
 		end
 		
+		# initializer for production
 		def ParseHelper.init_production()
 			constants = Booktrope::Constants.instance
-			Parse.init :application_id => constants[:parse_application_id],
-	                 :api_key        => constants[:parse_api_key]			
+	    ParseHelper.init(:application_id => constants[:parse_application_id],
+	    		             :api_key        => constants[:parse_api_key])
 		end
 		
+		# returns true if ParseHelper initialized parse. 
+		# calling .client on Parse before it's initialized throws an error. 
+		# might want to update this to begin/rescue and return false if .client throws
+		def ParseHelper.initialized?
+			return $parse_initialized
+		end
+		
+		# Helper function to load all books. Iteratively loads all books if there are more 
+		# books in parse than the limit of 1000 per request.
+		# :exists is an array of fields to ensure exist 
 		def ParseHelper.get_books(data = {})
 			
 			skip_by = 1000
@@ -46,6 +62,7 @@ module Booktrope
 			return books
 		end
 		
+		# gets books from parse with a set of constraints. 
 		def ParseHelper.get_books_with_constraints(options = [])
 			skip_by = 1000
 			skip = 0

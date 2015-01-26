@@ -1,4 +1,5 @@
 require 'rjmetrics_client'
+require 'json'
 require 'pp'
 module Booktrope
 	class RJHelper
@@ -45,12 +46,29 @@ module Booktrope
 		end
 		
 		def pushData
-			result = @rj_client.pushData @table_name, self.data, ((@is_sandbox) ? RJMetrics::Client::SANDBOX_BASE : RJMetrics::Client::API_BASE)
-			pp result
-			puts result.class
-			puts result.first
+			response = @rj_client.pushData @table_name, self.data, ((@is_sandbox) ? RJMetrics::Client::SANDBOX_BASE : RJMetrics::Client::API_BASE)
+
+			if ParseHelper.initialized?
+				log_entry = Parse::Object.new("RJMetricsLogEntry")
+				log_entry["base"] = (@is_sandbox) ? RJMetrics::Client::SANDBOX_BASE : RJMetrics::Client::API_BASE
+				log_entry["rjTable"] = @table_name
+				log_entry["keys"] = @keys.to_json
+				log_entry["data"] = @data.to_json
+				log_entry["rawResponse"] = response.to_s			
+				
+				if response.first && response.first["code"]
+					results = JSON.parse(response.first)				
+					log_entry["code"] = results["code"]
+					log_entry["message"] = results["message"]				
+				else
+					log_entry["code"] = 999
+					log_entry["Unexpected Results: Check the raw response"]
+				end
+				log_entry.save
+			end
+			
 			@data = Array.new		 
-			result
+			response
 		end
 
 	end
