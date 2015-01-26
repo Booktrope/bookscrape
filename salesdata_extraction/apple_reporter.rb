@@ -91,7 +91,7 @@ end
 
 def send_report_email(results)
 
-	report = "test"
+	report = "apple_report"
 	top = "Apple Sales Numbers for #{results[0][:crawl_date]} PST <br /><br />\n"
 	subject = 'Apple Sales Numbers'
 	Booktrope::MailHelper.send_report_email(report, subject, top, results.sort_by{ |k| k[:units_sold] }, "Apple ID" => :apple_id, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold, :total => [:units_sold])

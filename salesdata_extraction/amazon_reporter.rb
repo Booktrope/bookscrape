@@ -15,7 +15,7 @@ Extracts book sales data from Amazon KDP
 	
 	opt :parseDev, "Sets parse environment to dev", :short => 'd'
 	opt :suppressMail, "Suppresses the compeletion email", :short=> 's'
-	opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
+	opt :dontSaveToRJMetrics, "Turns off RJMetrics", :short => 'r'
 	opt :testRJMetrics, "Use RJMetrics test", :short => 't'
 	opt :dontSaveToParse, "Turns off parse", :short => 'x'
 	opt :headless, "Runs headless", :short => 'h'
@@ -171,7 +171,7 @@ def save_sales_data_to_parse(results)
 		
 		#setting the crawl date
 		crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/%d")+" "+Time.now().strftime("23:55:00"))
-		#crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/17")+" "+Time.now().strftime("23:55:00"))	
+		#crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/25")+" "+Time.now().strftime("23:55:00"))	
 	
 		#checking to see if we have a record from the previous day only if it's not the first of the month.
 		if Date.today.day != 1
