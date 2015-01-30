@@ -35,7 +35,7 @@ Booktrope::ParseHelper.init_production
 $batch = Parse::Batch.new
 $batch.max_requests = 50
 
-$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::NOOK_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj if !$opts.dontSaveToRJMetrics
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::GOOGLE_PLAY_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj if !$opts.dontSaveToRJMetrics
 
 Watir_harness.download_folder = $opts.downloadFolder
 class_name = "Salesdata_Extraction::Googleplay_reporter"

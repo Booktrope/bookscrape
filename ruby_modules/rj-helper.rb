@@ -20,6 +20,7 @@ module Booktrope
 		LSI_SALES_TABLE         = "lsi_sales_data"
 		CREATESPACE_SALES_TABLE = "createspace_sales_data"
 		GOOGLE_PLAY_STATS_TABLE = "google_play_stats_data"
+		GOOGLE_PLAY_SALES_TABLE = "google_play_sales_data"
 		TEAM_REVENUE_ALLOCATION_TABLE = "team_revenue_allocation_table"
 		
 		def initialize(table_name, keys, is_sandbox = false)

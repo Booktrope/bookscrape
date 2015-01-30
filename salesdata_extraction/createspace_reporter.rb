@@ -159,7 +159,7 @@ def pushdata_to_rj(cs_sales_data, fields)
 	fields.each do | key |
 		hash[key] = cs_sales_data[key]
 	end
-	$rjClient.add_object! hash 
+	puts $rjClient.add_object! hash 
 end
 
 def send_report_email(results)
@@ -167,7 +167,7 @@ def send_report_email(results)
 	report = "createspace_report"
 	subject = 'Createspace Sales Numbers'
 	top = "Createspace Sales Numbers for #{Date.today} PST<br />\n<br />\n"
-	Booktrope::MailHelper.send_report_email(report, subject, top, results.sort_by{ |k| k[:units_sold] }.reverse, "isbn" => :isbn, "Title" => :title, "Country" => :channel, "Daily Sales" => :units_sold, :total => [:units_sold])
+	#Booktrope::MailHelper.send_report_email(report, subject, top, results.sort_by{ |k| k[:units_sold] }.reverse, "isbn" => :isbn, "Title" => :title, "Country" => :channel, "Daily Sales" => :units_sold, :total => [:units_sold])
 
 end
 
