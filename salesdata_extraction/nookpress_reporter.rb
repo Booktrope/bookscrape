@@ -14,8 +14,10 @@ Extracts book sales data from nook press
    Usage:
             ruby nookpress_reporter.rb [--dontSaveToParse] [--headless]
    EOS
-
-	opt :testRJMetrics, "Use RJMetrics test", :short => 't'
+   
+   opt :parseDev, "Sets parse environment to dev", :short => 'd'
+   opt :testRJMetrics, "Use RJMetrics test", :short => 't'
+   opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
    opt :dontSaveToParse, "Turns off parse", :short => 'x'
    opt :headless, "Runs headless", :short => 'h'
    version "2.0.0 2014 Justin Jeffress"
@@ -28,12 +30,12 @@ is_test_rj = ($opts.testRJMetrics) ? true : false
 $BT_CONSTANTS = Booktrope::Constants.instance
 
 #initialize parse
-Booktrope::ParseHelper.init_production
+$opts.parseDev ?  Booktrope::ParseHelper.init_development : Booktrope::ParseHelper.init_production
 
 $batch = Parse::Batch.new
 $batch.max_requests = 50
 
-$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::NOOK_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj if !$opts.dontSaveToRJMetrics
+$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::NOOK_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj unless $opts.dontSaveToRJMetrics
 
 class_name = "Salesdata_Extraction::Nookpress_reporter"
 results = Watir_harness.run(should_run_headless, class_name, lambda { | log |
@@ -163,7 +165,7 @@ def send_report_email(results)
 	report = "nook_report"
 	subject = 'Nookpress Sales Numbers'
 	top = "Nookpress Sales Numbers for #{results[0][:date]}<br />\n<br />\n"
-	Booktrope::MailHelper.send_report_email(report, subject, top, results.sort_by{ |k| k[:units_sold].to_i }.reverse, "Nook Id" => :bn_id,"isbn" => :isbn, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold, :total => [:units_sold])
+	#Booktrope::MailHelper.send_report_email(report, subject, top, results.sort_by{ |k| k[:units_sold].to_i }, "Nook Id" => :bn_id,"isbn" => :isbn, "Title" => :title, "Country" => :country, "Daily Sales" => :units_sold, :total => [:units_sold])
 
 end
 
