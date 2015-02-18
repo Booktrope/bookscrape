@@ -25,6 +25,8 @@ end
 should_run_headless = ($opts.headless) ?  true : false
 is_test_rj = ($opts.testRJMetrics) ? true : false
 
+$start_date = (Date.today).strftime("%Y/%m/%d")
+
 $BT_CONSTANTS = Booktrope::Constants.instance
 
 $rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::AMAZON_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj if !$opts.dontSaveToRJMetrics
@@ -170,8 +172,8 @@ def save_sales_data_to_parse(results)
 		daily_kdp_unlimited = net_kdp_unlimited
 		
 		#setting the crawl date
-		crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/%d")+" "+Time.now().strftime("23:55:00"))
-		#crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/25")+" "+Time.now().strftime("23:55:00"))	
+		crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/%d 23:55:00"))
+		#crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/25 23:55:00"))
 	
 		#checking to see if we have a record from the previous day only if it's not the first of the month.
 		if Date.today.day != 1
@@ -221,7 +223,7 @@ end
 def send_report_email(results)
 
 	report = "amazon_report"
-	top = "Amazon Sales Numbers for #{Date.today-1} PST<br />\n<br />\n"
+	top = "Amazon Sales Numbers for #{$start_date} PST<br />\n<br />\n"
 	subject = 'Amazon Sales Numbers'
 	Booktrope::MailHelper.send_report_email(report, subject, top, results.sort_by{ |k| k[:daily_sales] }.reverse, "asin" => :asin, "Title" => :title, "Country" => :country, "Daily Sales" => :daily_sales, "Month To Date" => :net_sales, "Daily KDP Unlimited" => :daily_kdp_unlimited, "Month To Date (KDP Unlimited)" => :kdp_unlimited, "Force Free" => :force_free, :total => [:daily_sales, :net_sales, :daily_kdp_unlimited, :kdp_unlimited, :force_free])
 
