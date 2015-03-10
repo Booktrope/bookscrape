@@ -8,7 +8,7 @@ BT_CONSTANTS = Booktrope::Constants.instance
 
 Booktrope::ParseHelper.init_production
 
-$rjClient = Booktrope::RJHelper.new "booktrope_parse", ["teamtropeId", "parseId"], true
+$rjClient = Booktrope::RJHelper.new "booktrope_parse", ["teamtropeId", "parseId"]
 
 def syncParseBooks(skip)
 
@@ -25,6 +25,7 @@ def syncParseBooks(skip)
 	
 		book_hash = Hash.new
 		book_hash["asin"]    = book["asin"]
+		book_hash["inclusionAsin"] = book["inclusionAsin"]
 		book_hash["appleId"] = book["appleId"]
 
 		book_hash["title"] = book["title"]
