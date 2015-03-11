@@ -25,7 +25,7 @@ def syncParseBooks(skip)
 	
 		book_hash = Hash.new
 		book_hash["asin"]    = book["asin"]
-		book_hash["inclusionAsin"] = book["inclusionAsin"]
+		book_hash["inclusionAsin"] = book["inclusionASIN"]
 		book_hash["appleId"] = book["appleId"]
 
 		book_hash["title"] = book["title"]
