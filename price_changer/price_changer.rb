@@ -93,7 +93,7 @@ def change_prices_for_amazon(change_hash)
 
         Watir_harness.browser.checkbox(:id, "title-setup-agreement").set
 
-        # DON'T CLICK!!
+        # DON'T CLICK!! if you don't want to change the price.
         Watir_harness.browser.button(:css, "span#title-setup-step2-submit input.a-button-input").click
 
         sleep(35.0)
@@ -111,6 +111,15 @@ end
 
 def lookup_book_edit_page_url(change_hash, current_asin)
 
+  # setting the books per page to 50
+  if Watir_harness.browser.span(:id, "bookshelftable-records-per-page-dropdown").span(:class, "a-dropdown-prompt").present?
+    Watir_harness.browser.span(:id, "bookshelftable-records-per-page-dropdown").span(:class, "a-dropdown-prompt").click
+    if Watir_harness.browser.link(:id, "dropdown1_2").present?
+      Watir_harness.browser.link(:id, "dropdown1_2").click
+      sleep(10.0)
+    end
+  end
+
   result = ""
   done = false
   i = 0
@@ -118,8 +127,8 @@ def lookup_book_edit_page_url(change_hash, current_asin)
   while(!done)
     puts "Page: #{i+1}"
     books = Watir_harness.browser.trs(:class, "mt-row")
-    books.each do | book |
 
+    books.each do | book |
       if book.div(:class, "asinText").present?
         asin = book.div(:class, "asinText").text.strip.gsub(/\(ASIN: /, "").gsub(/\)$/, "")
 
@@ -140,9 +149,33 @@ def lookup_book_edit_page_url(change_hash, current_asin)
             break
           end
         end
+      else # handling the new bookshelf html TODO: refactor this to be more elegant (once they make the html changes final the if above can be deleted.)
+        book_id = book.id
+        if book.span(:id, "zme-indie-bookshelf-digital-metadata-asin-#{book_id}").present?
+          asin = book.span(:id, "zme-indie-bookshelf-digital-metadata-asin-#{book_id}").text.gsub(/ASIN: /, "")
 
+          if change_hash.has_key? asin
+            hash_count = hash_count + 1
+            edit_page_url = "https://kdp.amazon.com/title-setup/#{book_id}"
+            puts "#{asin}\t#{edit_page_url}"
+
+            if change_hash[asin]["book"]["kdpUrl"] == "" || change_hash[asin]["book"]["kdpUrl"].nil?
+              change_hash[asin]["book"]["kdpUrl"] = edit_page_url
+              puts "saving kdpUrl #{edit_page_url} for asin #{asin}"
+              change_hash[asin]["book"].save
+              sleep(1.0)
+            end
+            result = edit_page_url if asin == current_asin
+            if hash_count == change_hash.length
+              done = true
+              break
+            end
+          end
+
+        end
       end
     end
+
     #break if change_hash.size <= 0
     if Watir_harness.browser.link(:xpath, "//a[contains(@href, '#next')]").present?
       Watir_harness.browser.link(:xpath, "//a[contains(@href, '#next')]").click
@@ -574,6 +607,7 @@ def get_change_hash_for(channel)
   change_hash = Hash.new
 
   changelings.each do | changeling |
+
     next if channel == Booktrope::PRICE_CHANGE::AMAZON_CHANNEL && ((changeling["isPriceIncrease"] || changeling["isEnd"]) && !is_complete_on_other_channels(changeling["book"], changeling["changeDate"]))
     next if changeling["book"][changeling["salesChannel"]["controlField"]].nil?
     puts "#{changeling["changeDate"].value}\t#{changeling["book"][changeling["salesChannel"]["controlField"]]}\t#{changeling["status"]}\t#{changeling["book"]["title"]}\t#{changeling["book"]["author"]}\t#{changeling["price"]}\t#{changeling["isEnd"]}"
@@ -676,11 +710,6 @@ body = ""
     change_prices_for channel, change_hash
     convert_status_to_code change_hash
     body = body +"<h1>#{channel}</h1><br/>\n"+ Booktrope::MailHelper.alternating_table_body_for_hash_of_parse_objects(change_hash, :col_data => [ "asin" => {:object => "", :field => "asin"}, "Title" => {:object => "book", :field => "title"}, "Author" => {:object => "book", :field => "author"}, "Price" => {:object => "", :field => "price"}, "Status" => {:object => "", :field =>"status_text" }, "Status Code" => {:object => "", :field => "status"}])
-  end
-end
-
-sendEmail(body) if !$opts.suppressMail && body.length > 0
-title"}, "Author" => {:object => "book", :field => "author"}, "Price" => {:object => "", :field => "price"}, "Status" => {:object => "", :field =>"status_text" }, "Status Code" => {:object => "", :field => "status"}])
   end
 end
 
