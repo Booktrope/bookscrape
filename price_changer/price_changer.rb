@@ -258,6 +258,7 @@ def change_prices_for_nook(change_hash)
       Watir_harness.browser.button(:id, "submit_publish_settings_button").click
 
       done = false
+      error = false
       while !done
         log.info "sleeping ..."
         sleep 5.0
@@ -266,13 +267,26 @@ def change_prices_for_nook(change_hash)
           log.info "present"
           done = true
         end
-      end
-      Watir_harness.browser.div(:class => "alert-box", :class => "warning", :class => "squeeze").wait_until_present
-      Watir_harness.browser.div(:class => "alert-box", :class => "warning", :class => "squeeze").text.end_with? "Changes can take up to 24 hours to appear on the site."
 
-      changeling["status"] = Booktrope::PRICE_CHANGE::UNCONFIRMED
-      changeling.save_perserve(["book","salesChannel"])
-      sleep(1.0)
+        if Watir_harness.browser.body(:class => "errors").present?
+          log.info "error"
+          error = true
+          done = true
+        end
+      end
+
+      unless error
+        Watir_harness.browser.div(:class => "alert-box", :class => "warning", :class => "squeeze").wait_until_present
+        Watir_harness.browser.div(:class => "alert-box", :class => "warning", :class => "squeeze").text.end_with? "Changes can take up to 24 hours to appear on the site."
+
+        changeling["status"] = Booktrope::PRICE_CHANGE::UNCONFIRMED
+        changeling.save_perserve(["book","salesChannel"])
+        sleep(1.0)
+      else
+        changeling["status"] = Booktrope::PRICE_CHANGE::META_ERROR
+        changeling.save_perserve(["book", "salesChannel"])
+        sleep(1.0)
+      end
     end
   })
 end
