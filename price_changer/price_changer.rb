@@ -531,16 +531,16 @@ def change_prices_for_google(change_hash)
 
     #login
     browser.text_field(:id, "Email").set  $BT_CONSTANTS[:google_play_username]
+    if browser.button(:id, "next").present?
+      browser.button(:id, "next").click
+      browser.text_field(:id, "Passwd").wait_until_present
+    end
     browser.text_field(:id, "Passwd").set $BT_CONSTANTS[:google_play_password]
     browser.button(:id, "signIn").click
 
 
-
     change_hash.each do | key, changeling |
       book = changeling["book"]
-
-
-
 
       if book["googlePlayUrl"].nil?
         changeling["status"] = Booktrope::PRICE_CHANGE::NOT_ON_STORE
