@@ -438,7 +438,7 @@ def change_prices_for_apple(change_hash)
 
         sleep(5.0)
 
-        Watir_harness.browser.span(:class, "wrapper-right-button").text_field.click
+        Watir_harness.browser.input(:class, "continueActionButton").click
         Watir_harness.browser.button(:class, "confirmActionButton").wait_until_present
         Watir_harness.browser.button(:class, "confirmActionButton").click
 
