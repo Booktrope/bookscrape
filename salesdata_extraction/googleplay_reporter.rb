@@ -51,6 +51,10 @@ Watir_harness.run(should_run_headless, class_name, lambda { | log |
 
   #login
   browser.text_field(:id, "Email").set  $BT_CONSTANTS[:google_play_username]
+  if browser.button(:id, "next").present?
+    browser.button(:id, "next").click
+    browser.text_field(:id, "Passwd").wait_until_present
+  end
   browser.text_field(:id, "Passwd").set $BT_CONSTANTS[:google_play_password]
   browser.button(:id, "signIn").click
 
