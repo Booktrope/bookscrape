@@ -79,6 +79,8 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
         if !data.at_css("tbody#kindle_meta_binding_winner tr#tmm_"<< asin <<" td.price").nil?
           kindle_price = data.at_css("tbody#kindle_meta_binding_winner tr#tmm_"<< asin <<" td.price").text.strip.gsub(/\n.*/, "").tr('$','')
         end
+      elsif temp_price_matches = data.at_css("tr.kindle-price").text.strip.gsub(/\n/, "").match(/Kindle Price:.*?([0-9]+\.[0-9]+)/)
+        kindle_price = temp_price_matches.captures.first
       else
         kindle_prices = data.xpath("//td[@class='productBlockLabel']")
         kindle_prices.each do |item|
@@ -92,11 +94,13 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
       end
 
       if data.at_css("span.crAvgStars span span")
-         stars = data.at_css("span.crAvgStars span span").text.strip.gsub(/ out of 5 stars/,"")
+        stars = data.at_css("span.crAvgStars span span").text.strip.gsub(/ out of 5 stars/,"")
       elsif data.at_css("div.reviews div.gry.txtnormal.acrRating")
-         stars = data.at_css("div.gry.txtnormal.acrRating").text.strip.gsub(/ out of 5 stars/,"")
+        stars = data.at_css("div.gry.txtnormal.acrRating").text.strip.gsub(/ out of 5 stars/,"")
+      elsif data.at_css("div#avgRating span")
+        stars = data.at_css("div#avgRating span").text.strip.gsub(/ out of 5 stars/,"")
       else
-         hasNoAvgReviews = true
+        hasNoAvgReviews = true
       end
 
       if salesRank == nil
@@ -106,9 +110,11 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
       end
 
       if data.at("//span[@class='crAvgStars']/a[last()]")
-         customer_reviews = data.at("//span[@class='crAvgStars']/a[last()]").text.strip.gsub(/ customer review/,"").gsub(/s/,"")
+        customer_reviews = data.at("//span[@class='crAvgStars']/a[last()]").text.strip.gsub(/ customer review/,"").gsub(/s/,"")
       elsif data.at_css("div.reviews div#revSum div.fl.mt15.clearboth")
-         customer_reviews = data.at("div.reviews div#revSum div.fl.mt15.clearboth").text.strip.gsub(/See all /,"").gsub(/ customer review/,"").gsub(/s/,"")
+        customer_reviews = data.at("div.reviews div#revSum div.fl.mt15.clearboth").text.strip.gsub(/See all /,"").gsub(/ customer review/,"").gsub(/s/,"")
+      elsif data.at_css("div#revSum div#summaryStars a")
+        customer_reviews = data.at_css("div#revSum div#summaryStars a").text.gsub(/\n/, "").strip
       else
          hasNoReviews = true
       end
@@ -222,7 +228,8 @@ Amazon::Ecs.options = {
 :AWS_secret_key    => BT_CONSTANTS[:amazon_ecs_secret_key]
 }
 
-Booktrope::ParseHelper.init_production
+#Booktrope::ParseHelper.init_production
+Booktrope::ParseHelper.init_development
 
 is_test_rj = ($opts.testRJMetrics) ? true : false
 $rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::AMAZON_STATS_TABLE, ["parse_book_id", "crawlDate"], is_test_rj if !$opts.dontSaveToRJMetrics
@@ -277,6 +284,7 @@ if book_count["count"] > 0
     end
     harvestAmazonData(asin_args, bookHash, shouldSaveToParse) if asin_args.length > 0
     done = true if skip >= book_count["count"]
+    done = true
   end
 end
 
