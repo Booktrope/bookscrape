@@ -228,8 +228,7 @@ Amazon::Ecs.options = {
 :AWS_secret_key    => BT_CONSTANTS[:amazon_ecs_secret_key]
 }
 
-#Booktrope::ParseHelper.init_production
-Booktrope::ParseHelper.init_development
+Booktrope::ParseHelper.init_production
 
 is_test_rj = ($opts.testRJMetrics) ? true : false
 $rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::AMAZON_STATS_TABLE, ["parse_book_id", "crawlDate"], is_test_rj if !$opts.dontSaveToRJMetrics
