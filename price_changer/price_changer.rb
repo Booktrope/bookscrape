@@ -595,7 +595,7 @@ def sendEmail(body)
   mailgun = Mailgun(:api_key => $BT_CONSTANTS[:mailgun_api_key], :domain => $BT_CONSTANTS[:mailgun_domain])
   top = "The following books have had their prices changed for #{Date.today} PST<br />\n<br />\n"
   email_parameters = {
-    :to      => (!$opts.emailOverride.nil?) ? $opts.emailOverride : 'justin.jeffress@booktrope.com, andy@booktrope.com, pennie.dade@booktrope.com, kate.burkett@booktrope.com', #, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
+    :to      => (!$opts.emailOverride.nil?) ? $opts.emailOverride : 'justin.jeffress@booktrope.com, andy@booktrope.com, pennie.dade@booktrope.com, annelle.willard@booktrope.com #, heather.ludviksson@booktrope.com, Katherine Sears <ksears@booktrope.com>, Kenneth Shear <ken@booktrope.com>',
     :from    => '"Price Changer" <justin.jeffress@booktrope.com>',
     :subject => ($opts.debug) ? 'Price Changes (DEBUG changes not actually made)' : 'Price Changes',
     :html    => top + body
