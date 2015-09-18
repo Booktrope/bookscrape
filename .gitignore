@@ -3,7 +3,6 @@
 #Except:
 !.gitignore
 !book_analysis/
-!config/
 !ruby_modules/
 !reports/
 !cn_mapper/
