@@ -3,6 +3,10 @@
 #Except:
 !.gitignore
 !book_analysis/
+<<<<<<< HEAD
+=======
+!config/
+>>>>>>> origin/master
 !ruby_modules/
 !reports/
 !cn_mapper/
