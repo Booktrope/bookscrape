@@ -49,6 +49,9 @@ module Watir_harness
       profile['general.useragent.override'] = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:25.0) Gecko/20100101 Firefox/25.0"
     end
 
+    client = Selenium::WebDriver::Remote::Http::Default.new
+    client.timeout = 180 # seconds – default is 60
+
     #TODO: clean this up
     profile['browser.download.folderList'] = 2
     puts "folder: #{@download_folder}"
@@ -60,7 +63,8 @@ module Watir_harness
 
     #puts "SELENIUM_HARNESS::SETUP #{Selenium::Webbrowser::Firefox::Binary.path}"
 
-    @browser = Watir::Browser.new :firefox , :profile => profile
+    @browser = Watir::Browser.new :firefox , profile: profile, http_client: client
+    @browser.window.resize_to(1400,900)
   end
 
   def self.teardown
