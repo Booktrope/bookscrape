@@ -3,10 +3,7 @@
 #Except:
 !.gitignore
 !book_analysis/
-<<<<<<< HEAD
-=======
 !config/
->>>>>>> origin/master
 !ruby_modules/
 !reports/
 !cn_mapper/
@@ -20,5 +17,8 @@
 #ignoring logging files for amazon
 book_analysis/amazon/cron_log/*
 book_analysis/amazon/missing_log/*
+
+#ignore password file
+config/config.json
 
 .DS_Store
