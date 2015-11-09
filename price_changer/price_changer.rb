@@ -79,13 +79,13 @@ def change_prices_for_amazon(change_hash)
 
         if changeling["price"] < 2.99 || changeling["price"] > 9.99
           #make sure 35% Royalty
-          thirty_five_percent_royalty = Watir_harness.browser.radio(:xpath, "(//input[@name='royaltyPlan'])[1]")
+          thirty_five_percent_royalty = Watir_harness.browser.radio(:xpath, "(//input[@name='royaltyPlan-radio'])[1]")
           if !thirty_five_percent_royalty.set?
             thirty_five_percent_royalty.set
           end
         else
           #make sure 70% Royalty
-          seventy_percent_royalty = Watir_harness.browser.radio(:xpath, "(//input[@name='royaltyPlan'])[2]")
+          seventy_percent_royalty = Watir_harness.browser.radio(:xpath, "(//input[@name='royaltyPlan-radio'])[2]")
           if  !seventy_percent_royalty.set?
             seventy_percent_royalty.set
           end
