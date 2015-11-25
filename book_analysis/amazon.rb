@@ -64,7 +64,7 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
     done = false
     count = 0
     while(!done)
-      sleep(2.0)
+      sleep(1.0)
       response = Download_simple.downloadData(detailPageUrl)
       done = true if !response.nil? && response.code == "200"
       if count > 4 then done = true end
@@ -76,8 +76,8 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
        hasNoReviews = false
       data = Nokogiri.parse(response.body)
       if data.at_css("tbody#kindle_meta_binding_winner")
-        if !data.at_css("tbody#kindle_meta_binding_winner tr#tmm_"<< asin <<" td.price").nil?
-          kindle_price = data.at_css("tbody#kindle_meta_binding_winner tr#tmm_"<< asin <<" td.price").text.strip.gsub(/\n.*/, "").tr('$','')
+        if !data.at_css("tbody#kindle_meta_binding_winner tr#tmm_" << asin << " td.price").nil?
+          kindle_price = data.at_css("tbody#kindle_meta_binding_winner tr#tmm_" << asin << " td.price").text.strip.gsub(/\n.*/, "").tr('$','')
         end
       elsif temp_price_matches = data.at_css("tr.kindle-price").text.strip.gsub(/\n/, "").match(/Kindle Price:.*?([0-9]+\.[0-9]+)/)
         kindle_price = temp_price_matches.captures.first
@@ -281,9 +281,10 @@ if book_count["count"] > 0
       isStart = false
       asin_args << book["asin"]
     end
+
     harvestAmazonData(asin_args, bookHash, shouldSaveToParse) if asin_args.length > 0
     done = true if skip >= book_count["count"]
-    done = true
+    # done = true
   end
 end
 
