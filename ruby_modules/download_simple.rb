@@ -15,10 +15,16 @@ module Download_simple
 		http = Net::HTTP.new(uri.host, uri.port)
 		http.open_timeout = openTimeOut
 		http.read_timeout = readTimeOut
-		useragent = "Mozilla/5.0 (Windows NT 6.1; rv:6.0) Gecko/20110814 Firefox/6.0"
+		useragent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/46.0.2490.86 Safari/537.36"
 
 		request = Net::HTTP::Get.new(uri.request_uri)
-		request.initialize_http_header({'User-Agent' => useragent})
+		request.initialize_http_header(
+					{
+						'Accept-Language' => 'en-US,en;q=0.8',
+						'Cache-Control' => 'max-age=0',
+						'User-Agent' => useragent
+					}
+				)
 
 		@log.info "connecting to: " + url
       
