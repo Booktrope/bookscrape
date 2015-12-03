@@ -24,6 +24,7 @@ Pulls data from Amazon
    opt :dontSaveToRJMetrics, "Turns of RJMetrics", :short => 'r'
    opt :testRJMetrics, "Use RJMetrics test sandbox. This option will save to the sandbox.", :short => 't'
    opt :pathToHtmlFiles, "The path to save the html files that are captured if an extracted value is not found.", :type => :string, :short => 'p'
+   opt :csv_output, "Output to a CSV File", :type => :string, :short => 'c'
    version "1.0.0 2014 Justin Jeffress"
 end
 
@@ -31,7 +32,7 @@ end
 $log = Bt_logging.create_logging('Book_analysis::Amazon')
 $changeQueue = Hash.new
 
-def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
+def harvestAmazonData(asinList, bookHash, shouldSaveToParse, csv_handle)
   res = Amazon::Ecs.item_lookup(asinList,:response_group => 'ItemAttributes,SalesRank,Images')
   if !res.is_valid_request? or res.has_error?
      $log.error "There was an error requesting the following asins: " + asinList
@@ -64,7 +65,7 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
     done = false
     count = 0
     while(!done)
-      sleep(1.0)
+      sleep(0.25)
       response = Download_simple.downloadData(detailPageUrl)
       done = true if !response.nil? && response.code == "200"
       if count > 4 then done = true end
@@ -79,8 +80,10 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
         if !data.at_css("tbody#kindle_meta_binding_winner tr#tmm_" << asin << " td.price").nil?
           kindle_price = data.at_css("tbody#kindle_meta_binding_winner tr#tmm_" << asin << " td.price").text.strip.gsub(/\n.*/, "").tr('$','')
         end
-      elsif temp_price_matches = data.at_css("tr.kindle-price").text.strip.gsub(/\n/, "").match(/Kindle Price:.*?([0-9]+\.[0-9]+)/)
-        kindle_price = temp_price_matches.captures.first
+      elsif !data.at_css("tr.kindle-price").nil?
+        if temp_price_matches = data.at_css("tr.kindle-price").text.strip.gsub(/\n/, "").match(/Kindle Price:.*?([0-9]+\.[0-9]+)/)
+          kindle_price = temp_price_matches.captures.first
+        end
       else
         kindle_prices = data.xpath("//td[@class='productBlockLabel']")
         kindle_prices.each do |item|
@@ -177,6 +180,10 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
        puts "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % [asin, kindle_price, title, author, manufacturer, salesRank, customer_reviews, stars, crawl_date.to_h()["iso"], detailPageUrl, largeImageUrl]
     end
 
+    if (csv_handle)
+      csv_handle << [asin, kindle_price, title, author, manufacturer, salesRank, customer_reviews, stars, crawl_date.to_h()["iso"], detailPageUrl, largeImageUrl]
+    end
+
     if $changeQueue.has_key? asin
       if kindle_price.to_f == $changeQueue[asin]["price"]
         $changeQueue[asin]["status"] = Booktrope::PRICE_CHANGE::CONFIRMED
@@ -184,18 +191,20 @@ def harvestAmazonData(asinList, bookHash, shouldSaveToParse)
       end
     end
   end
-  if bookHash.length > 0
 
+  # Identify the books that were not located
+  if bookHash.length > 0
     is_first = true
     asin_list = ""
     bookHash.each do | key, value |
       asin_list << "," if !is_first
       asin_list << key
       is_first = false
+      $invalid_book_asins << key
     end
     $log.error "not all books were returned from amazon: #{asin_list}"
   end
-  sleep(1.0)
+  #sleep(1.0)
 end
 
 def pushdata_to_rj(amazonStats, fields)
@@ -218,14 +227,14 @@ workingPath = !$opts.pathToHtmlFiles.nil? && $opts.pathToHtmlFiles.strip != "" ?
 $cron_dir   = File.join(workingPath, "cron_log")
 Dir.mkdir($cron_dir) unless File.exists?($cron_dir)
 
-shouldSaveToParse = $opts.dontSaveToParse ? false : true;
+shouldSaveToParse = $opts.dontSaveToParse ? false : true
 
 BT_CONSTANTS = Booktrope::Constants.instance
 
 Amazon::Ecs.options = {
-:associate_tag     => BT_CONSTANTS[:amazon_ecs_associate_tag],
-:AWS_access_key_id => BT_CONSTANTS[:amazon_ecs_access_key_id],
-:AWS_secret_key    => BT_CONSTANTS[:amazon_ecs_secret_key]
+  :associate_tag     => BT_CONSTANTS[:amazon_ecs_associate_tag],
+  :AWS_access_key_id => BT_CONSTANTS[:amazon_ecs_access_key_id],
+  :AWS_secret_key    => BT_CONSTANTS[:amazon_ecs_secret_key]
 }
 
 Booktrope::ParseHelper.init_production
@@ -233,8 +242,20 @@ Booktrope::ParseHelper.init_production
 is_test_rj = ($opts.testRJMetrics) ? true : false
 $rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::AMAZON_STATS_TABLE, ["parse_book_id", "crawlDate"], is_test_rj if !$opts.dontSaveToRJMetrics
 
+if $opts.csv_output
+  require 'csv.rb'
+  csv_handle = CSV.open($opts.csv_output, 'ab')
+  csv_handle << ['asin', 'kindle_price', 'title', 'author', 'manufacturer', 'salesRank', 'customer_reviews', 'stars', 'crawl_date', 'detailPageUrl', 'largeImageUrl']
+else
+  csv_handle = nil
+end
+
+
 $batch = Parse::Batch.new
 $batch.max_requests = 50
+
+# Track all of the asins we can't locate
+$invalid_book_asins = []
 
 changelings = Parse::Query.new("PriceChangeQueue").tap do |q|
   q.limit = 1000
@@ -264,7 +285,7 @@ if book_count["count"] > 0
     book_list = Parse::Query.new("Book").tap do |q|
       q.exists("asin")
       q.skip = skip
-      q.limit = 10
+      q.limit = GROUPING
     end.get
     skip = skip + GROUPING
 
@@ -273,18 +294,24 @@ if book_count["count"] > 0
     asin_args = ""
     count = 1
     book_list.each do |book|
-      bookHash[book["asin"]] = book
+
+      # If there's an inclusionASIN, we should use this instead as Amazon now has the book
+      # under their own imprint.  (Maybe we should just try both?)
+      book_key = (! book['inclusionASIN'].nil?) ? book['inclusionASIN'] : book['asin']
+
+      bookHash[book_key] = book
 
       if !isStart
         asin_args << ","
       end
+
       isStart = false
-      asin_args << book["asin"]
+      asin_args << book_key
     end
 
-    harvestAmazonData(asin_args, bookHash, shouldSaveToParse) if asin_args.length > 0
+    harvestAmazonData(asin_args, bookHash, shouldSaveToParse, csv_handle) if asin_args.length > 0
+    puts "Skip: #{skip}, Book Count: #{book_count["count"]} - ASIN Args: #{asin_args}"
     done = true if skip >= book_count["count"]
-    # done = true
   end
 end
 
@@ -297,3 +324,10 @@ end
 if !$opts.dontSaveToRJMetrics && $rjClient.data.count > 0
   puts $rjClient.pushData
 end
+
+# Close the CSV handle and write the file out
+if $opts.csv_output && csv_handle
+  csv_handle.close
+end
+
+puts "Found the following invalid asins: #{$invalid_book_asins}"
