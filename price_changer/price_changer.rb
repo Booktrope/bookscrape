@@ -64,7 +64,10 @@ def change_prices_for_amazon(change_hash)
         next
       end
 
+      log.info "going to page #{edit_page_url}"
       Watir_harness.browser.goto(edit_page_url)
+      sleep 3.0
+
       Watir_harness.browser.div(:xpath, "//div[@id='title-setup-step2']/div/div").wait_until_present
 
       if !Watir_harness.browser.div(:id, "title-setup-top-warning-alert").present?
@@ -366,9 +369,13 @@ def change_prices_for_apple(change_hash)
 
     Watir_harness.browser.goto url
 
-    Watir_harness.browser.text_field(:id, "accountname").set($BT_CONSTANTS[:itunes_connect_username])
-    Watir_harness.browser.text_field(:id, "accountpassword").set($BT_CONSTANTS[:itunes_connect_password])
-    Watir_harness.browser.link(:class, "btn-signin").click
+    Watir_harness.browser.iframe(:id, 'authFrame').text_field(:id, "appleId").wait_until_present
+
+    Watir_harness.browser.iframe(:id, 'authFrame').text_field(:id, "appleId").set $BT_CONSTANTS[:itunes_connect_username]
+    Watir_harness.browser.iframe(:id, 'authFrame').text_field(:id, "pwd").set $BT_CONSTANTS[:itunes_connect_password]
+
+    Watir_harness.browser.iframe(:id, 'authFrame').button(:id, "sign-in").wait_until_present
+    Watir_harness.browser.iframe(:id, 'authFrame').button(:id, "sign-in").click
 
     Watir_harness.browser.div(:id, "pageWrapper").wait_until_present
     Watir_harness.browser.div(:id, "pageWrapper").div(:class, "homepageWrapper").ul(:id, "main-nav").span(:text, "My Books").wait_until_present
@@ -436,11 +443,9 @@ def change_prices_for_apple(change_hash)
         #clicking the continue button
         #Watir_harness.browser.span(:class, "wrapper-right-button").text_field.click
 
-        sleep(5.0)
-
-        Watir_harness.browser.input(:class, "continueActionButton").click
-        Watir_harness.browser.button(:class, "confirmActionButton").wait_until_present
-        Watir_harness.browser.button(:class, "confirmActionButton").click
+        Watir_harness.browser.input(:id, "customBlueActionButton").click
+        Watir_harness.browser.button(:id, "customBlueActionButton").wait_until_present
+        Watir_harness.browser.button(:id, "customBlueActionButton").click
 
         changeling["status"] = Booktrope::PRICE_CHANGE::UNCONFIRMED
         changeling.save_perserve(["book","salesChannel"])
