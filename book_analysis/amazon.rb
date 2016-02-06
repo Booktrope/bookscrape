@@ -265,6 +265,17 @@ changelings = Parse::Query.new("PriceChangeQueue").tap do |q|
   end)
 end.get
 
+# also consider the prefunk queue
+changelings.concat(
+  Parse::Query.new("PrefunkQueue").tap do | q |
+    q.limit = 1000
+    q.eq("status", 50)
+    q.in_query("salesChannel", Parse::Query.new("SalesChannel").tap do | inner_query |
+      inner_query.eq("name", "Amazon")
+    end)
+  end.get
+)
+
 changelings.each do | changeling |
   $changeQueue[changeling["asin"]] = changeling
 end
