@@ -17,6 +17,15 @@ changelings = Parse::Query.new("PriceChangeQueue").tap do |q|
   q.eq("channelName", "Amazon")
 end.get
 
+# also consider the prefunk queue.
+changelings.concat(
+  Parse::Query.new("PrefunkQueue").tap do | q |
+    q.limit = 1000
+    q.eq("status", Booktrope::PRICE_CHANGE::UNCONFIRMED)
+    q.eq("channelName", "Amazon")
+  end.get
+)
+
 changelings.each do | changeling |
   next if changeling['asin'].nil? or changeling['asin'] == ""
   puts changeling["asin"]
