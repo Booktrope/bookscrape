@@ -84,6 +84,17 @@ change_queue = Parse::Query.new("PriceChangeQueue").tap do |q|
   q.include = "book,salesChannel"
 end.get
 
+# also consider prefunk changes
+change_queue.concat(
+  Parse::Query.new("PrefunkQueue").tap do | q |
+    q.limit = 1000
+    q.eq("status", Booktrope::PRICE_CHANGE::UNCONFIRMED)
+    q.in_query("salesChannel", Parse::Query.new("SalesChannel").tap do | inner_query |
+      inner_query.eq("name", Booktrope::PRICE_CHANGE::APPLE_CHANNEL)
+    end)
+  end.get
+)
+
 change_queue.each do | item |
   if !unconfirmed_hash.has_key? item["book"]
     unconfirmed_hash[item["book"]] = item
