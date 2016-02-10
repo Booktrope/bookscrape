@@ -47,13 +47,19 @@ Watir_harness.run(should_run_headless, class_name, lambda { | log |
 
   Watir_harness.browser.goto url
 
-  Watir_harness.browser.text_field(:id, "accountname").set($BT_CONSTANTS[:itunes_connect_username])
-  Watir_harness.browser.text_field(:id, "accountpassword").set($BT_CONSTANTS[:itunes_connect_password])
 
-  Watir_harness.browser.link(:class, "btn-signin").click
+  Watir_harness.browser.iframe(:id, 'authFrame').text_field(:id, "appleId").wait_until_present
+
+  Watir_harness.browser.iframe(:id, 'authFrame').text_field(:id, "appleId").set $BT_CONSTANTS[:itunes_connect_username]
+  Watir_harness.browser.iframe(:id, 'authFrame').text_field(:id, "pwd").set $BT_CONSTANTS[:itunes_connect_password]
+
+  Watir_harness.browser.iframe(:id, 'authFrame').button(:id, "sign-in").wait_until_present
+  Watir_harness.browser.iframe(:id, 'authFrame').button(:id, "sign-in").click
+
 
   #Watir_harness.browser.goto "https://reportingitc2.apple.com/?"
   sleep 5.0
+  Watir_harness.browser.div(:id, "pageWrapper").wait_until_present
   Watir_harness.browser.goto "https://reportingitc2.apple.com/reports.html"
 
   Watir_harness.browser.button(:class => "primary-", :class => "download").wait_until_present
@@ -65,7 +71,7 @@ Watir_harness.run(should_run_headless, class_name, lambda { | log |
   end
 })
 
-def get_book_hash()
+def get_book_hash
   book_hash = Hash.new
 
   #getting the number of books in parse
@@ -161,7 +167,7 @@ def csv_to_parse(contents)
   send_report_email results
 end
 
-def process_download_folder()
+def process_download_folder
   puts "processing the download folder: #{$opts.downloadFolder}"
   Dir.foreach($opts.downloadFolder) do | item |
     next if item == '.' or item == '..' or item.start_with?('.')
@@ -170,8 +176,8 @@ def process_download_folder()
   end
 end
 
-$book_hash = get_book_hash()
-process_download_folder()
+$book_hash = get_book_hash
+process_download_folder
 
 if $batch.requests.length > 0 && !$opts.dontSaveToParse
   puts $batch.run!
