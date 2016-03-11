@@ -137,16 +137,22 @@ end
 
 def csv_to_parse(contents)
   results = Array.new
+
+  total_sales = 0
+  crawl_date = nil
+
   csv = CSV.parse(contents, :headers => true, :col_sep => "\t")
   csv.each do | row |
     if row["Product Type Identifier"] == "EB1"
       row_hash = Hash.new
       row_hash[:title] = row["Title"]
       row_hash[:units_sold] = row["Units"].to_i
+      total_sales += row_hash[:units_sold]
       row_hash[:country] = row["Country Code"]
       row_hash[:apple_id] = row["Apple Identifier"]
       date = row["Begin Date"].split "/"
       row_hash[:crawl_date] = "#{date[2]}-#{date[0]}-#{date[1]} 00:00:00"
+      crawl_date = Parse::Date.new "#{date[2]}-#{date[0]}-#{date[1]} 23:55:00" if crawl_date.nil?
 
       apple_sales_data = Parse::Object.new("AppleSalesData")
       if $book_hash.has_key? row_hash[:apple_id]
@@ -164,6 +170,13 @@ def csv_to_parse(contents)
       results.push row_hash
     end
   end
+
+  unless crawl_date.nil?
+    ascr = Parse::Query.new("AggregateSalesChannel").tap {| q | q.eq("crawlDate", crawl_date) }.get.first || Parse::Object.new("AggregateSalesChannel")
+    ascr["appleSales"] = total_sales
+    ascr.save
+  end
+
   send_report_email results
 end
 
