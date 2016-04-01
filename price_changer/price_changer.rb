@@ -561,7 +561,7 @@ def change_prices_for_google(change_hash)
       browser.goto edit_url
       browser.span(:text, "Prices").wait_until_present
 
-      status_message = browser.div(:class, "itQ7ub-uPnqId-i8xkGf").div(:class, "itQ7ub-DWWcKd-k77Iif").div(:class, "itQ7ub-DWWcKd-DARUcf").div(:class, "itQ7ub-DARUcf-qJTHM").div(:class => "itQ7ub-DARUcf-Q4BLdf", :class => "itQ7ub-pIkB8-jOfkMb-BivLOc").h3
+      status_message = browser.div(:class, "itQ7ub-uPnqId-i8xkGf").div(:class, "itQ7ub-DWWcKd-k77Iif").div(:class, "itQ7ub-DWWcKd-DARUcf").div(:class, "itQ7ub-DARUcf-qJTHM").div(:class => "itQ7ub-DARUcf-Q4BLdf", :class => "itQ7ub-pIkB8-jOfkMb-BivLOc").h2
       if status_message.text == "BOOK STATUS: DEACTIVATED"
         changeling["status"] = Booktrope::PRICE_CHANGE::NOT_ON_STORE
         changeling.save_perserve(["book","salesChannel"])
