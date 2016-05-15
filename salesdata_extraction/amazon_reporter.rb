@@ -1,47 +1,27 @@
-require 'nokogiri'
-require 'trollop'
-
 $basePath = File.absolute_path(File.dirname(__FILE__))
 require File.join($basePath, '..', 'booktrope-modules')
+require 'trollop'
+require 'spreadsheet'
+require 'csv'
+require 'pp'
 
-$opts = Trollop::options do
+opts = Trollop::options do
 
-  banner <<-EOS
-Extracts book sales data from Amazon KDP
+   banner <<-EOS
+   Extract Sales Data from the amazon spreadsheet and save them to parse.
 
-  Usage:
-            ruby amazon_reporter.rb [--dontSaveToParse] [--headless]
-  EOS
-
-  opt :parseDev, "Sets parse environment to dev", :short => 'd'
-  opt :suppressMail, "Suppresses the compeletion email", :short=> 's'
-  opt :dontSaveToRJMetrics, "Turns off RJMetrics", :short => 'r'
-  opt :testRJMetrics, "Use RJMetrics test", :short => 't'
-  opt :dontSaveToParse, "Turns off parse", :short => 'x'
-  opt :headless, "Runs headless", :short => 'h'
-  version "2.0.0 2014 Justin Jeffress"
+   Usage:
+      ruby amazon_reporter.rb
+   EOS
+   opt :production, "By default the script saves to the developer instance of parse."
+   opt :start_date, "The start date serves as the lower bound.", type: String, required: true
+   opt :end_date, "The end date serves as the upper bound.", type: String
+   opt :dont_save, "Don't save to parse if this is provided", short: 'x'
+   opt :file, "Path to the excel file to extract the data from.", type: String, required: true
+   version "0.0.0 2016 Justin Jeffress"
 end
 
-should_run_headless = ($opts.headless) ?  true : false
-is_test_rj = ($opts.testRJMetrics) ? true : false
-
-$start_date = (Date.today).strftime("%Y/%m/%d")
-
-$BT_CONSTANTS = Booktrope::Constants.instance
-
-$rjClient = Booktrope::RJHelper.new Booktrope::RJHelper::AMAZON_SALES_TABLE, ["parse_book_id", "crawlDate", "country"], is_test_rj if !$opts.dontSaveToRJMetrics
-
-#initialize parse
-if $opts.parseDev
-  Booktrope::ParseHelper.init_development
-else
-  Booktrope::ParseHelper.init_production
-end
-
-$batch = Parse::Batch.new
-$batch.max_requests = 50
-
-$marketplace_hash = {
+channels = {
       "Amazon.com" => "US",
       "Amazon.co.uk" => "UK",
       "Amazon.de" => "DE",
@@ -54,221 +34,169 @@ $marketplace_hash = {
       "Amazon.ca" => "CA",
       "Amazon.com.br" => "BR",
       "Amazon.com.mx" => "MX",
-      "Amazon.com.au" => "AU"
- }
+      "Amazon.com.au" => "AU"  }
 
-class_name = "Salesdata_Extraction::Amazon_reporter"
-results = Watir_harness.run(should_run_headless, class_name, lambda { | log |
+if opts.production
+  Booktrope::ParseHelper.init_production
+else
+  Booktrope::ParseHelper.init_development
+end
 
-  browser = Watir_harness.browser
+lower_bound = Parse::Date.new "#{opts.start_date} 23:55"
 
-  url = $BT_CONSTANTS[:amazon_kdp_url]
+# set upper_bound to lower_bound if no end_date provided via command line
+upper_bound = if opts.end_date
+  Parse::Date.new "#{opts.end_date} 23:55"
+else
+  lower_bound
+end
 
-  #getting the amazon kdp page
-  browser.goto url
+puts opts.dont_save
 
-  #clicking the login button
-  browser.link(:class, "a-button-text").click
+batch = Parse::Batch.new
+batch.max_requests = 50
 
-  #entering the username and password
-  browser.text_field(:id, "ap_email").wait_until_present
-  browser.text_field(:id, "ap_email").set $BT_CONSTANTS[:amazon_kdp_username]
+book_hash = {}
+book_list = Booktrope::ParseHelper.get_books(exists: ["asin"])
+book_list.each do | book |
+  book_hash[book["asin"]] = book
+end
 
-  browser.text_field(:id, "ap_password").set $BT_CONSTANTS[:amazon_kdp_password]
+totals = {}
+
+royality_report_txt = ''
+
+doc = Spreadsheet.open(opts.file)
+doc.worksheet(0).rows.each do | row |
+  royality_report_txt << row.join("\t").gsub(/"/, "") << "\n"
+end
+
+orders_report = ""
+doc.worksheet(1).rows.each do | row |
+  orders_report << row.join("\t").gsub(/"/, "") << "\n"
+end
+
+extracted_data_hash = {}
+CSV.parse(royality_report_txt, headers: :first_row, col_sep: "\t").each_with_index do | row, index |
+  key = "#{row["Royalty Date"]}_#{row["ASIN"]}_#{channels[row["Marketplace"]]}"
+  sales_record_hash = extracted_data_hash[key]
+  sales_record_hash ||= { asin: row["ASIN"], crawl_date: row["Royalty Date"], channel: channels[row["Marketplace"]], daily_sales: 0, daily_free_units_promo: 0, force_free: 0 }
+
+  puts "#{row["Royalty Date"]}\t#{row["ASIN"]}\t#{row["Title"]}\t#{row["Marketplace"]}\t#{row["Transaction Type"]}\t#{row["Units Sold"]}"
+
+  case row["Transaction Type"]
+  when "Standard"
+    sales_record_hash[:daily_sales] += row["Units Sold"].to_i
+  when "Free - Promotion"
+    sales_record_hash[:daily_free_units_promo] += row["Units Sold"].to_i
+  when "Free - Price Match"
+    sales_record_hash[:force_free] += row["Units Sold"].to_i
+  else
+    next
+  end
+
+  extracted_data_hash[key] = sales_record_hash
+
+end
+
+CSV.parse(orders_report, headers: :first_row, col_sep: "\t").each_with_index do | row, index |
+  key = "#{row["Order Date"]}_#{row["ASIN"]}_#{channels[row["Marketplace"]]}"
+  sales_record_hash = extracted_data_hash[key]
+  sales_record_hash ||= { asin: row["ASIN"], crawl_date: row["Order Date"], channel: channels[row["Marketplace"]] }
+
+  sales_record_hash[:daily_kdp_unlimited] = row["Kindle Edition Normalized Pages (KENP) Read"].to_i
+
+  extracted_data_hash[key] = sales_record_hash
+end
 
 
-  #clicking the login button
-  browser.button(:id, "signInSubmit-input").click
+results = []
 
+extracted_data_hash.sort.each do | key, sales_record_hash |
 
-  #clicking on the reports button
-  browser.link(:text, "Reports").wait_until_present
-  browser.link(:text, "Reports").click
+  crawl_date = Parse::Date.new(sales_record_hash[:crawl_date] + " 23:55")
+  next if !(lower_bound.value <= crawl_date.value) || !(crawl_date.value <= upper_bound.value)
 
-  sleep(5.0)
+  new_record = true
 
-  #clicking on the month to date sales
-  browser.link(:id, "mtdLink").wait_until_present
-  browser.link(:id, "mtdLink").click
+  amazon_sales_data = nil
+  # amazon_sales_data = Parse::Query.new("AmazonSalesData").tap do |q|
+  #   q.eq("crawlDate", crawl_date)
+  #   q.eq("asin", sales_record_hash[:asin])
+  #   q.eq("country", sales_record_hash[:channel])
+  #   q.order_by = "crawlDate"
+  #   q.limit = 1
+  # end.get.first
 
-  sleep(15.0)
+  new_record = false unless amazon_sales_data.nil?
 
-  browser.table(:id, "promotionTransactionsReports").tbody.wait_until_present
+  amazon_sales_data ||= Parse::Object.new("AmazonSalesData")
 
-  #The country that appears first is US so we set it to US.
-  country = "US"
-  log.info country
-  results = Array.new
+  book = book_hash[sales_record_hash[:asin]]
+  amazon_sales_data["book"] = book
+  amazon_sales_data["asin"] = sales_record_hash[:asin]
 
-  #declaring our lambda function since we need to run this code both outside and inside the loop.
-  #sure we can do it with a loop but closures are fun too.
-  print_lambda = lambda { | extraction_array |
-    sleep 5.0
-    browser.table(:id, "promotionTransactionsReports").tbody.wait_until_present
-    browser.table(:id, "promotionTransactionsReports").tbody.trs.each do | row |
-      break if row.tds.size < 9
-      extraction_data = Hash.new
-      extraction_data[:title]         = row.tds[1].text
-      extraction_data[:asin]          = row.tds[2].text
-      extraction_data[:net_sales]     = row.tds[5].text
-      extraction_data[:kdp_unlimited] = row.tds[6].text
-      extraction_data[:force_free]    = row.tds[8].text
-      extraction_data[:country]       = country
-      extraction_array.push(extraction_data)
+  #amazon_sales_data["netSales"] = net_sales
+  #amazon_sales_data["netKdpUnlimited"] = net_kdp_unlimited
+
+  unless totals.has_key? crawl_date.strftime
+    totals[crawl_date.strftime] = { date: crawl_date, sales: 0, read: 0 }
+  end
+
+  totals[crawl_date.strftime][:sales] += sales_record_hash[:daily_sales] unless sales_record_hash[:daily_sales].nil?
+  totals[crawl_date.strftime][:read] += sales_record_hash[:daily_kdp_unlimited] unless sales_record_hash[:daily_kdp_unlimited].nil?
+
+  amazon_sales_data["country"] = sales_record_hash[:channel]
+  amazon_sales_data["crawlDate"] = crawl_date
+  amazon_sales_data["dailySales"] = sales_record_hash[:daily_sales]
+  amazon_sales_data["forceFree"] = sales_record_hash[:force_free]
+  amazon_sales_data["dailyKdpUnlimited"] = sales_record_hash[:daily_kdp_unlimited]
+  amazon_sales_data["dailyFreeUnitsPromo"] = sales_record_hash[:daily_free_units_promo]
+
+  wrapper_hash = sales_record_hash
+  wrapper_hash[:title] = book['title'] unless book.nil?
+  results.push(wrapper_hash)
+
+  puts "#{sales_record_hash[:crawl_date]}\t#{sales_record_hash[:asin]}\t#{sales_record_hash[:channel]}\t#{sales_record_hash[:daily_sales]},#{sales_record_hash[:force_free]},#{sales_record_hash[:daily_free_units_promo]},#{sales_record_hash[:daily_kdp_unlimited]}"
+
+  unless opts.dont_save
+    if new_record
+      batch.create_object_run_when_full! amazon_sales_data
+    else
+      batch.update_object_run_when_full! amazon_sales_data
     end
-    return extraction_array
-  }
+  end
 
-  #extracting the data from the US
-  results.concat(print_lambda.call(Array.new))
-  sleep(5.0)
+  #sleep 0.25
+end
 
-  browser.div(:id, "marketplaceSelect_chosen").present?
-  browser.div(:id, "marketplaceSelect_chosen").click
-  channels = browser.ul(:class, "chosen-results").lis.map(&:text)
-  #getting the dropdown for country stores and looping through each country
-  channels.each do | channel |
-    country = $marketplace_hash[channel]
-    next if country.nil? || country == "US"
+totals.each do | key, total |
+  puts "#{key}: sold: #{total[:sales]} read: #{total[:read]}"
 
-    log.info country
+  ascr = Parse::Query.new("AggregateSalesChannel").tap {| q | q.eq("crawlDate", total[:date]) }.get.first
+  new_record = false
+  if ascr.nil?
+    ascr = Parse::Object.new("AggregateSalesChannel")
+    new_record = true
+  end
 
-    log.info browser.ul(:class, "chosen-results").present?
+  ascr["crawlDate"] = total[:date] #Parse::Date.new(start_date + " 23:55")
+  ascr["amazonSales"] = total[:sales]
+  ascr["KENPRead"] = total[:read]
 
-    unless browser.ul(:class, "chosen-results").present?
-      log.info browser.div(:id, "marketplaceSelect_chosen").present?
-      browser.div(:id, "marketplaceSelect_chosen").click
-      browser.ul(:class, "chosen-results").wait_until_present
+  unless opts.dont_save
+    if new_record
+      batch.create_object_run_when_full! ascr
+    else
+      batch.update_object_run_when_full! ascr
     end
-
-    browser.ul(:class, "chosen-results").li(:text, channel).click
-    browser.body.click
-    sleep 5.0
-    extraction_data = Hash.new
-    results.concat(print_lambda.call(Array.new))
   end
-  return results
-})
+  sleep 0.5
+end
 
-def get_book_hash()
-
-  book_hash = Hash.new
-
-  #getting the number of books in parse
-  book_count = Parse::Query.new("Book").tap do |q|
-    q.limit = 0
-    q.count = 1
-  end.get
-
-  #requesting all books at once
-  #TODO: parse is limited to 1000 rows per query. Need to update this to loop requests
-  #using skip to get everything.
-  book_list = Parse::Query.new("Book").tap do |q|
-    q.limit = book_count["count"]
-  end.get
-
-  #building the book_hash
-  book_list.each do | book |
-    book_hash[book["asin"]] = book
+unless opts.dont_save
+  if batch.requests.length > 0
+    pp batch.run!
+    batch.requests.clear
   end
-
-  return book_hash
-end
-
-def prepare_or_push_data_to_rjmetrics(amazon_sales_data, fields)
-  return if (!amazon_sales_data.has_key?("book") || amazon_sales_data["book"].nil?)
-
-  hash = Hash.new
-
-  hash["parse_book_id"] = amazon_sales_data["book"].parse_object_id
-  hash["crawlDate"] = amazon_sales_data["crawlDate"].value
-
-  fields.each do | key |
-    hash[key] = amazon_sales_data[key]
-  end
-
-  $rjClient.add_object! hash if !$opts.dontSaveToRJMetrics
-end
-
-def save_sales_data_to_parse(results)
-puts "save_sales_data_to_parse"
-  book_hash = get_book_hash
-
-  results.each do | result |
-
-    net_sales = result[:net_sales].to_i
-    net_kdp_unlimited = result[:kdp_unlimited].to_i
-    daily_sales = net_sales
-    daily_kdp_unlimited = net_kdp_unlimited
-
-    #setting the crawl date
-    crawl_date = Parse::Date.new((Date.today).strftime("%Y/%m/%d 23:55:00"))
-    #crawl_date = Parse::Date.new((Date.today).strftime("%Y/04/14  23:55:00"))
-
-    #checking to see if we have a record from the previous day only if it's not the first of the month.
-    #if Date.today.day != 1
-      old_sales_data = Parse::Query.new("AmazonSalesData").tap do |q|
-        q.greater_than("crawlDate", Parse::Date.new(((Date.today-1).strftime("%Y/%m/01")+" "+"00:00:00")))
-        #q.less_than("crawlDate", Parse::Date.new(((Date.today-1).strftime("%Y/%m/23")+" "+"00:00:00")))
-        q.eq("asin", result[:asin])
-        q.eq("country", result[:country])
-        q.order_by = "crawlDate"
-        q.order = :descending
-        q.limit = 1
-      end.get.first
-    #end
-
-    #amazon tracks month to date sales, so we need to subtract yesterday's net from today's
-    if !old_sales_data.nil?
-      daily_sales = net_sales - old_sales_data["netSales"].to_i
-      kdp_unlimited = net_kdp_unlimited - old_sales_data["netKdpUnlimited"].to_i
-      puts "daily sales: #{daily_sales}"
-    end
-
-    result[:daily_sales] = daily_sales
-    result[:daily_kdp_unlimited] = kdp_unlimited
-
-    #getting the book object to link the amazon_sales_data to.
-    book = book_hash[result[:asin]]
-
-    amazon_sales_data = Parse::Object.new("AmazonSalesData")
-    amazon_sales_data["book"] = book
-    amazon_sales_data["asin"] = result[:asin]
-    amazon_sales_data["netSales"] = net_sales
-    amazon_sales_data["netKdpUnlimited"] = net_kdp_unlimited
-    amazon_sales_data["forceFree"] = result[:force_free].to_i
-    amazon_sales_data["country"] = result[:country]
-    amazon_sales_data["crawlDate"] = crawl_date
-    amazon_sales_data["dailySales"] = daily_sales
-    amazon_sales_data["dailyKdpUnlimited"] = kdp_unlimited
-
-    $batch.create_object_run_when_full!(amazon_sales_data) if !$opts.dontSaveToParse
-    prepare_or_push_data_to_rjmetrics(amazon_sales_data, ["dailySales", "netSales", "dailyKdpUnlimited", "netKdpUnlimited", "country", "forceFree"]) if !$opts.dontSaveToRJMetrics && amazon_sales_data["dailySales"] > 0
-
-    sleep 2.0
-  end
-end
-
-def send_report_email(results)
-
-  report = "amazon_report"
-  top = "Amazon Sales Numbers for #{$start_date} PST<br />\n<br />\n"
-  subject = 'Amazon Sales Numbers'
-  Booktrope::MailHelper.send_report_email(report, subject, top, results.sort_by{ |k| k[:daily_sales] }.reverse, "asin" => :asin, "Title" => :title, "Country" => :country, "Daily Sales" => :daily_sales, "Month To Date" => :net_sales, "Daily KDP Unlimited" => :daily_kdp_unlimited, "Month To Date (KDP Unlimited)" => :kdp_unlimited, "Force Free" => :force_free, :total => [:daily_sales, :net_sales, :daily_kdp_unlimited, :kdp_unlimited, :force_free])
-
-end
-
-if !results.nil? && results.count > 0
-  save_sales_data_to_parse(results)
-
-  send_report_email(results) unless $opts.suppressMail
-end
-
-if $batch.requests.length > 0
-  $batch.run!
-  $batch.requests.clear
-end
-
-if !$opts.dontSaveToRJMetrics && $rjClient.data.count > 0
-  puts $rjClient.pushData
 end
